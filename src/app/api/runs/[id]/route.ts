@@ -1,0 +1,72 @@
+import { NextResponse } from 'next/server'
+import { getRun } from '@/lib/pipeline'
+import { getEpisode, updateEpisodeStatus } from '@/lib/db'
+import { validateRunId } from '@/lib/validation'
+
+function errorResponse(error: string, details?: string, status = 500) {
+  return NextResponse.json({ error, details }, { status })
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    if (!id || !validateRunId(id)) {
+      return errorResponse('Invalid id parameter', undefined, 400)
+    }
+
+    const run = getRun(id)
+    const episode = getEpisode(id)
+
+    if (!run && !episode) {
+      return errorResponse('Not found', undefined, 404)
+    }
+
+    return NextResponse.json({
+      ...run,
+      dbStatus: episode?.status || 'inbox',
+      scores: {
+        curiosity: episode?.score_curiosity,
+        audience: episode?.score_audience,
+        platform: episode?.score_platform,
+        feasibility: episode?.score_feasibility,
+      }
+    })
+  } catch (err) {
+    return errorResponse('Failed to get run', err instanceof Error ? err.message : undefined, 500)
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    if (!id || !validateRunId(id)) {
+      return errorResponse('Invalid id parameter', undefined, 400)
+    }
+
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return errorResponse('Invalid JSON body', undefined, 400)
+    }
+
+    if (!body || typeof body !== 'object') {
+      return errorResponse('Body must be an object', undefined, 400)
+    }
+
+    const { status } = body as Record<string, unknown>
+    if (status && typeof status === 'string') {
+      updateEpisodeStatus(id, status)
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    return errorResponse('Failed to update run', err instanceof Error ? err.message : undefined, 500)
+  }
+}
