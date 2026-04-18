@@ -86,10 +86,12 @@ export default function ScriptEditor() {
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
+  const [pendingDraft, setPendingDraft] = useState<ScriptData | null>(null)
 
   async function loadScript() {
     setLoading(true)
     setError('')
+    setPendingDraft(null)
     try {
       const draft = loadDraft(id)
       const r = await fetch(`/api/runs/${id}/script`)
@@ -104,11 +106,14 @@ export default function ScriptEditor() {
         platform_variants: data.platform_variants || {},
       }
 
+      // Always load server data first; do NOT restore draft until user confirms
+      setScript(serverData)
+
       if (draft && draft.timestamp > (data.script ? Date.now() - 86400000 : 0)) {
         setDraftBanner('pending')
-        setScript(draft.script)
+        setPendingDraft(draft.script)
       } else {
-        setScript(serverData)
+        setDraftBanner(null)
         if (draft) clearDraft(id)
       }
     } catch (err: unknown) {
@@ -155,6 +160,7 @@ export default function ScriptEditor() {
   // Auto-save effect: debounced 3s
   useEffect(() => {
     if (loading) return
+    if (draftBanner === 'pending') return  // Do NOT autosave while user is deciding on draft
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     saveDraft(id, script)
     autoSaveTimerRef.current = setTimeout(() => {
@@ -169,7 +175,7 @@ export default function ScriptEditor() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     }
-  }, [script, id, loading, performSave])
+  }, [script, id, loading, performSave, draftBanner])
 
   async function callAI(action: AIAction) {
     setAiLoading(action)
@@ -336,6 +342,10 @@ export default function ScriptEditor() {
             <div className="flex gap-2">
               <button
                 onClick={() => {
+                  if (pendingDraft) {
+                    setScript(pendingDraft)
+                    setPendingDraft(null)
+                  }
                   setDraftBanner('restored')
                 }}
                 className="px-3 py-1 bg-accent text-white rounded text-xs font-medium hover:bg-accent/90"
@@ -345,8 +355,8 @@ export default function ScriptEditor() {
               <button
                 onClick={() => {
                   clearDraft(id)
+                  setPendingDraft(null)
                   setDraftBanner(null)
-                  window.location.reload()
                 }}
                 className="px-3 py-1 bg-surface-3 text-text-3 rounded text-xs font-medium hover:text-text"
               >

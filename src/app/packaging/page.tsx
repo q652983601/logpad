@@ -14,6 +14,11 @@ interface TimelineItem {
   duration: string
 }
 
+interface EpisodeOption {
+  id: string
+  title: string
+}
+
 export default function PackagingPage() {
   const [items, setItems] = useState<TimelineItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,55 +33,58 @@ export default function PackagingPage() {
     duration: '3s',
     status: 'pending',
   })
+  const [episodes, setEpisodes] = useState<EpisodeOption[]>([])
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('')
+  const [error, setError] = useState('')
 
-  // Mock loading for now - would fetch from API
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setItems([
-        {
-          id: '1',
-          time: '00:00',
-          label: 'Hook 开场',
-          type: 'host_vo',
-          description: '真人出镜，手持镜头展示',
-          status: 'done',
-          duration: '6s',
-        },
-        {
-          id: '2',
-          time: '00:06',
-          label: '标题动画',
-          type: 'remotion',
-          description: '标题渐入动画',
-          prompt: 'Create a title card animation with "索尼 50mm F1.4" text, dark tech aesthetic, smooth fade-in',
-          status: 'done',
-          duration: '3s',
-        },
-        {
-          id: '3',
-          time: '00:45',
-          label: '光圈对比',
-          type: 'remotion',
-          description: 'F1.4 vs F2.8 vs F4 景深对比',
-          prompt: 'Depth-of-field comparison: show three panels with progressive blur from F1.4 to F4',
-          status: 'pending',
-          duration: '5s',
-        },
-        {
-          id: '4',
-          time: '01:30',
-          label: '重量对比图',
-          type: 'remotion',
-          description: '50mm vs 35mm vs 24-70 重量对比',
-          prompt: 'Bar chart comparing lens weights: 50mm (516g), 35mm (524g), 24-70 (886g)',
-          status: 'pending',
-          duration: '4s',
-        },
-      ])
-      setLoading(false)
-    }, 500)
-    return () => clearTimeout(timer)
+    fetch('/api/runs')
+      .then(r => r.json())
+      .then((data: Array<{ id: string; title: string }>) => {
+        const opts = data.map(d => ({ id: d.id, title: d.title }))
+        setEpisodes(opts)
+        if (opts.length > 0 && !selectedEpisodeId) {
+          setSelectedEpisodeId(opts[0].id)
+        }
+      })
+      .catch(() => setError('加载选题列表失败'))
   }, [])
+
+  async function fetchTimeline(episodeId: string) {
+    if (!episodeId) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/runs/${episodeId}/packaging/timeline`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setItems(Array.isArray(data.items) ? data.items : [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载时间轴失败')
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (selectedEpisodeId) {
+      fetchTimeline(selectedEpisodeId)
+    }
+  }, [selectedEpisodeId])
+
+  async function persistTimeline(nextItems: TimelineItem[]) {
+    if (!selectedEpisodeId) return
+    try {
+      await fetch(`/api/runs/${selectedEpisodeId}/packaging/timeline`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: nextItems }),
+      })
+    } catch (err) {
+      console.error('Failed to persist timeline:', err)
+    }
+  }
 
   const typeConfig = {
     host_vo: { label: '口播', color: 'bg-green/15 text-green', icon: '🎙️' },
@@ -92,20 +100,23 @@ export default function PackagingPage() {
     approved: { label: '已确认', color: 'bg-accent/15 text-accent' },
   }
 
-  function handleSubmit() {
-    if (!formData.time || !formData.label) return
+  async function handleSubmit() {
+    if (!formData.time || !formData.label || !selectedEpisodeId) return
 
+    let nextItems: TimelineItem[]
     if (editingId) {
-      setItems(prev => prev.map(item =>
+      nextItems = items.map(item =>
         item.id === editingId ? { ...item, ...formData } as TimelineItem : item
-      ))
+      )
       setEditingId(null)
     } else {
-      setItems(prev => [...prev, {
+      nextItems = [...items, {
         ...formData as TimelineItem,
-        id: Date.now().toString(),
-      }])
+        id: `${Date.now()}`,
+      }]
     }
+    setItems(nextItems)
+    await persistTimeline(nextItems)
 
     setShowForm(false)
     setFormData({
@@ -125,14 +136,18 @@ export default function PackagingPage() {
     setShowForm(true)
   }
 
-  function deleteItem(id: string) {
-    setItems(prev => prev.filter(item => item.id !== id))
+  async function deleteItem(id: string) {
+    const nextItems = items.filter(item => item.id !== id)
+    setItems(nextItems)
+    await persistTimeline(nextItems)
   }
 
-  function updateStatus(id: string, status: TimelineItem['status']) {
-    setItems(prev => prev.map(item =>
+  async function updateStatus(id: string, status: TimelineItem['status']) {
+    const nextItems = items.map(item =>
       item.id === id ? { ...item, status } : item
-    ))
+    )
+    setItems(nextItems)
+    await persistTimeline(nextItems)
   }
 
   if (loading) return (
@@ -152,6 +167,19 @@ export default function PackagingPage() {
           <div>
             <h2 className="text-2xl font-bold">包装车间</h2>
             <p className="text-text-2 text-sm mt-1">Remotion 时间轴：脚本时间点与插画/动画需求对位</p>
+            <div className="mt-3">
+              <select
+                value={selectedEpisodeId}
+                onChange={e => setSelectedEpisodeId(e.target.value)}
+                className="bg-surface-2 border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-accent"
+              >
+                <option value="">选择选题</option>
+                {episodes.map(ep => (
+                  <option key={ep.id} value={ep.id}>{ep.title}</option>
+                ))}
+              </select>
+              {error && <span className="text-xs text-red-400 ml-3">{error}</span>}
+            </div>
           </div>
           <button
             onClick={() => {

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { listAssets, createAsset } from '@/lib/db'
-import { writeFile, mkdir } from 'fs/promises'
+import { writeFile, mkdir, readFile } from 'fs/promises'
 import path from 'path'
+import { validateRunId } from '@/lib/validation'
 
 const MAX_SIZE = 100 * 1024 * 1024 // 100MB
 
@@ -73,6 +74,40 @@ export async function POST(request: Request) {
       source,
       status: 'ready',
     })
+
+    // Sync to runs/<episode_id>/05-assets/asset_manifest.json
+    if (episode_id && validateRunId(episode_id)) {
+      try {
+        const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
+          ? path.resolve(process.env.MEDIA_CODEX_ROOT)
+          : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
+        const manifestDir = path.join(MEDIA_CODEX_ROOT, 'runs', episode_id, '05-assets')
+        const manifestPath = path.join(manifestDir, 'asset_manifest.json')
+        await mkdir(manifestDir, { recursive: true })
+
+        let manifest: { assets: Array<{ id: number; name: string; type: string; path: string; source: string; uploaded_at: string }> } = { assets: [] }
+        try {
+          const raw = await readFile(manifestPath, 'utf-8')
+          manifest = JSON.parse(raw)
+          if (!Array.isArray(manifest.assets)) manifest.assets = []
+        } catch {
+          // file doesn't exist yet
+        }
+
+        manifest.assets.push({
+          id,
+          name: file.name,
+          type,
+          path: relativePath,
+          source,
+          uploaded_at: new Date().toISOString(),
+        })
+
+        await writeFile(manifestPath, JSON.stringify(manifest, null, 2))
+      } catch (manifestErr) {
+        console.warn('Failed to write asset_manifest.json:', manifestErr)
+      }
+    }
 
     return NextResponse.json({ id, path: relativePath })
   } catch (err) {

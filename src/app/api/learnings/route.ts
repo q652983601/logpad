@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { listLearnings, createLearning } from '@/lib/db'
+import { appendToTruthLog } from '@/lib/pipeline'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -19,5 +20,13 @@ export async function POST(request: Request) {
   }
 
   createLearning({ episode_id, tag, content })
+
+  // Writeback to truth/reviews/review-log.md
+  try {
+    appendToTruthLog('reviews/review-log.md', `**Episode**: ${episode_id}\n**Tag**: ${tag}\n${content}`)
+  } catch (err) {
+    console.warn('Failed to append to review-log.md:', err)
+  }
+
   return NextResponse.json({ success: true })
 }

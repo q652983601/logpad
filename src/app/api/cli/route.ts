@@ -30,7 +30,9 @@ export async function POST(req: NextRequest) {
     }
 
     const args: string[] = [body.command]
-    if (body.runId) args.push(body.runId)
+    if (body.runId) {
+      args.push('--run', body.runId)
+    }
     if (body.args) args.push(...body.args)
 
     const { stdout, stderr } = await execFileAsync('python3', [PIPELINE_SCRIPT, ...args], {

@@ -117,6 +117,46 @@ export function runExists(id: string): boolean {
   return fs.existsSync(path.join(RUNS_DIR, id))
 }
 
+export function initRun(id: string, title: string): void {
+  assertValidRunId(id)
+  const runPath = path.join(RUNS_DIR, id)
+  if (!fs.existsSync(runPath)) {
+    fs.mkdirSync(runPath, { recursive: true })
+  }
+
+  const episodePath = path.join(runPath, 'episode.json')
+  if (!fs.existsSync(episodePath)) {
+    const episode = {
+      id,
+      title,
+      status: 'inbox',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    fs.writeFileSync(episodePath, JSON.stringify(episode, null, 2))
+  }
+
+  // Ensure all stage directories exist
+  const stageDirs = [
+    '01-signal',
+    '02-research',
+    '03-topic',
+    '04-script',
+    '05-assets',
+    '06-packaging',
+    '07-production',
+    '08-distribution',
+    '09-metrics',
+    '10-review',
+  ]
+  for (const dir of stageDirs) {
+    const stagePath = path.join(runPath, dir)
+    if (!fs.existsSync(stagePath)) {
+      fs.mkdirSync(stagePath, { recursive: true })
+    }
+  }
+}
+
 export interface ScriptBackup {
   filename: string
   timestamp: string
@@ -189,4 +229,29 @@ export function readScriptBackup(id: string, filename: string): unknown | null {
   } catch {
     return null
   }
+}
+
+// ─── Writeback helpers for DB → runs/ sync ─────────────────────────────────
+
+export function writeRunJson(id: string, subdir: string, filename: string, data: unknown): void {
+  assertValidRunId(id)
+  const dir = path.join(RUNS_DIR, id, subdir)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+  fs.writeFileSync(path.join(dir, filename), JSON.stringify(data, null, 2))
+}
+
+export function appendToTruthLog(logPath: string, entry: string): void {
+  const truthDir = path.join(MEDIA_CODEX_ROOT, 'truth')
+  if (!fs.existsSync(truthDir)) {
+    fs.mkdirSync(truthDir, { recursive: true })
+  }
+  const fullPath = path.join(truthDir, logPath)
+  const dir = path.dirname(fullPath)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+  const line = `\n## ${new Date().toISOString()}\n${entry}\n`
+  fs.appendFileSync(fullPath, line)
 }

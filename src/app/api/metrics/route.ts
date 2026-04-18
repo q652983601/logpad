@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { listMetrics, createMetrics } from '@/lib/db'
+import { writeRunJson } from '@/lib/pipeline'
+import { validateRunId } from '@/lib/validation'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -43,6 +45,28 @@ export async function POST(request: Request) {
     avg_watch_time: avg_watch_time ?? 0,
     ctr: ctr ?? 0,
   })
+
+  // Writeback to runs/<episode_id>/09-metrics/metrics.json
+  if (validateRunId(episode_id)) {
+    try {
+      writeRunJson(episode_id, '09-metrics', 'metrics.json', {
+        episode_id,
+        platform,
+        views: views ?? 0,
+        completion_rate: completion_rate ?? 0,
+        likes: likes ?? 0,
+        comments: comments ?? 0,
+        shares: shares ?? 0,
+        saves: saves ?? 0,
+        new_followers: new_followers ?? 0,
+        avg_watch_time: avg_watch_time ?? 0,
+        ctr: ctr ?? 0,
+        recorded_at: new Date().toISOString(),
+      })
+    } catch (err) {
+      console.warn('Failed to write metrics.json:', err)
+    }
+  }
 
   return NextResponse.json({ success: true })
 }

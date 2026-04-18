@@ -180,11 +180,22 @@ export default function DistributionPage() {
 
   async function markPublished() {
     if (!selectedPlan) return
-    await fetch(`/api/publishing/${selectedPlan.id}`, {
+    const stages = stagesMap[selectedPlan.episode_id] || {}
+    const doneCount = STAGE_KEYS.filter(k => stages[k]?.exists).length
+    if (doneCount !== STAGE_KEYS.length) {
+      alert('还有未完成的 pipeline 节点，无法发布')
+      return
+    }
+    const res = await fetch(`/api/publishing/${selectedPlan.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'published' }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || '发布失败')
+      return
+    }
     await fetchPlans()
     setShowEditor(false)
   }
@@ -711,11 +722,20 @@ export default function DistributionPage() {
                   <button onClick={() => copyPlatformText(selectedPlan)} className="px-4 py-2 bg-surface-2 text-text-2 rounded-lg text-sm hover:text-text">
                     复制文案
                   </button>
-                  {selectedPlan.status !== 'published' && (
-                    <button onClick={markPublished} className="px-4 py-2 bg-green/15 text-green rounded-lg text-sm font-medium hover:bg-green/25">
-                      标记为已发布
-                    </button>
-                  )}
+                  {selectedPlan.status !== 'published' && (() => {
+                    const stages = stagesMap[selectedPlan.episode_id] || {}
+                    const doneCount = STAGE_KEYS.filter(k => stages[k]?.exists).length
+                    const allDone = doneCount === STAGE_KEYS.length
+                    return allDone ? (
+                      <button onClick={markPublished} className="px-4 py-2 bg-green/15 text-green rounded-lg text-sm font-medium hover:bg-green/25">
+                        标记为已发布
+                      </button>
+                    ) : (
+                      <span className="px-4 py-2 bg-surface-3 text-text-3 rounded-lg text-sm cursor-not-allowed" title="Pipeline 节点未完成">
+                        标记为已发布
+                      </span>
+                    )
+                  })()}
                   <button onClick={deletePlan} className="px-4 py-2 bg-red-500/10 text-red-400 rounded-lg text-sm hover:bg-red-500/20 ml-auto">
                     删除
                   </button>

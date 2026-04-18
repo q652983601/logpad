@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { listRuns } from '@/lib/pipeline'
+import { listRuns, initRun } from '@/lib/pipeline'
 import { listEpisodes, createEpisode } from '@/lib/db'
 
 function errorResponse(error: string, details?: string, status = 500) {
@@ -75,6 +75,9 @@ export async function POST(request: Request) {
       platforms: Array.isArray(platforms) ? platforms.join(',') : undefined,
       run_path: `${process.env.MEDIA_CODEX_ROOT || '/Users/wilsonlu/Desktop/Ai/media/media-codex'}/runs/${id}`,
     })
+
+    // Ensure runs/ directory and episode.json are created on filesystem
+    initRun(id, title)
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (err) {

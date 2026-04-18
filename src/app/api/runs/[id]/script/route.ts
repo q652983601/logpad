@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { readScript, writeScript, backupScript, listScriptBackups, readScriptBackup } from '@/lib/pipeline'
-import { validateRunId } from '@/lib/validation'
+import { validateRunId, validateScriptData } from '@/lib/validation'
 
 function errorResponse(error: string, details?: string, status = 500) {
   return NextResponse.json({ error, details }, { status })
@@ -58,6 +58,11 @@ export async function PUT(
       body = await request.json()
     } catch {
       return errorResponse('Invalid JSON body', undefined, 400)
+    }
+
+    const validation = validateScriptData(body)
+    if (!validation.valid) {
+      return errorResponse('Invalid script data', validation.errors.join('; '), 400)
     }
 
     backupScript(id)

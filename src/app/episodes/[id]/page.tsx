@@ -48,7 +48,7 @@ export default function EpisodePage() {
     loadEpisode()
   }, [id])
 
-  async function runCli(command: string) {
+  async function runCli(command: string, extraArgs?: string[]) {
     setCliLoading(command)
     setCliError('')
     setCliResult(null)
@@ -56,7 +56,7 @@ export default function EpisodePage() {
       const res = await fetch('/api/cli', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command, runId: id }),
+        body: JSON.stringify({ command, runId: id, args: extraArgs }),
       })
       const data = await res.json()
       if (!data.success) {
@@ -202,7 +202,12 @@ export default function EpisodePage() {
                   {cliLoading === 'validate' ? '执行中...' : '✅ 验证节点'}
                 </button>
                 <button
-                  onClick={() => runCli('advance')}
+                  onClick={() => {
+                    // Find the next incomplete stage
+                    const nextStage = stageList.find(s => !episode?.stages?.[s.key]?.exists)
+                    const args = nextStage ? ['--to', nextStage.key] : undefined
+                    runCli('advance', args)
+                  }}
                   disabled={!!cliLoading}
                   className="px-3 py-2 bg-surface-2 border border-border rounded-lg text-xs text-text-2 hover:text-text hover:border-accent/30 transition-colors disabled:opacity-50"
                 >

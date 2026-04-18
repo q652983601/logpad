@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getRun } from '@/lib/pipeline'
 import { getEpisode, updateEpisodeStatus } from '@/lib/db'
-import { validateRunId } from '@/lib/validation'
+import { validateRunId, validateStatus } from '@/lib/validation'
 
 function errorResponse(error: string, details?: string, status = 500) {
   return NextResponse.json({ error, details }, { status })
@@ -62,6 +62,9 @@ export async function PATCH(
 
     const { status } = body as Record<string, unknown>
     if (status && typeof status === 'string') {
+      if (!validateStatus(status)) {
+        return errorResponse('Invalid status', undefined, 400)
+      }
       updateEpisodeStatus(id, status)
     }
 
