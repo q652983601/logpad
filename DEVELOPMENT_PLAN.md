@@ -1,8 +1,8 @@
 # LogPad 开发计划
 
-> 版本: v0.3.6
+> 版本: v0.3.7
 > 日期: 2026-04-19
-> 状态: 80/80 质量线完成，本机 Agent routing、创作者操作台、内容工厂、提词器、封面 brief、分页、鉴权、测试链路已完成
+> 状态: 80/80 质量线完成，本机 Agent routing、创作者操作台、active episode bridge、命令面板、内容工厂、提词器、封面 brief、分页、鉴权、service worker 升级稳定性、测试链路已完成
 
 ---
 
@@ -163,6 +163,7 @@
 | 可选本地鉴权 | ✅ |
 | 首页/素材分页 | ✅ |
 | PWA 更新提示 | ✅ |
+| Service worker 网络优先升级，避免旧 chunk 卡住页面 | ✅ |
 | Lint / Typecheck / Test 验证链路 | ✅ |
 
 ### 3.5 自媒体产能增强

@@ -5,13 +5,13 @@ This document defines how LogPad versions are named, validated, tagged, and publ
 ## Current Stable Version
 
 ```text
-0.3.6
+0.3.7
 ```
 
 Release tag:
 
 ```text
-v0.3.6
+v0.3.7
 ```
 
 Release line:
@@ -31,7 +31,7 @@ LogPad uses SemVer-style numbering, adapted for a local creator tool:
 Examples:
 
 - `0.4.0`: Remotion render queue or platform data import becomes a major usable module.
-- `0.3.7`: small UX fixes, extra tests, docs, or bug fixes after `0.3.6`.
+- `0.3.8`: small UX fixes, extra tests, docs, or bug fixes after `0.3.7`.
 - `1.0.0`: LogPad is stable enough for daily production without manual fallback to file browsing.
 
 ## Release Checklist
@@ -65,20 +65,20 @@ Also do one browser smoke check for the creator-critical paths:
 
 ```bash
 git add .
-git commit -m "Release LogPad v0.3.6"
+git commit -m "Release LogPad v0.3.7"
 ```
 
 7. Tag:
 
 ```bash
-git tag -a v0.3.6 -m "LogPad v0.3.6"
+git tag -a v0.3.7 -m "LogPad v0.3.7"
 ```
 
 8. Push:
 
 ```bash
 git push origin main
-git push origin v0.3.6
+git push origin v0.3.7
 ```
 
 9. Create or update the GitHub release from the changelog entry.
@@ -111,7 +111,7 @@ If a material workflow decision changed, also write it back to:
 To inspect a previous release:
 
 ```bash
-git checkout v0.3.6
+git checkout v0.3.7
 ```
 
 To return to active development:

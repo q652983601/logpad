@@ -3,6 +3,7 @@ import { listRuns, initRun } from '@/lib/pipeline'
 import { listEpisodes, createEpisode } from '@/lib/db'
 import { formatZodError, runCreateSchema } from '@/lib/api-schemas'
 import { parsePagination } from '@/lib/pagination'
+import { syncActiveEpisodes } from '@/lib/active-episodes'
 
 function errorResponse(error: string, details?: string, status = 500) {
   return NextResponse.json({ error, details }, { status })
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const pagination = parsePagination(searchParams, { limit: 100, maxLimit: 300 })
+    syncActiveEpisodes()
     const runs = listRuns()
     const episodes = listEpisodes()
 

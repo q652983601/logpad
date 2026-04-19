@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countCompletedStages, isPipelineComplete, toCliStage } from './pipeline-status'
+import { countCompletedStages, isPipelineComplete, isReadyToPublish, toCliStage } from './pipeline-status'
 
 describe('pipeline status helpers', () => {
   it('maps UI stage names to CLI stage names', () => {
@@ -33,5 +33,23 @@ describe('pipeline status helpers', () => {
     }
     expect(countCompletedStages(complete)).toBe(10)
     expect(isPipelineComplete(complete)).toBe(true)
+    expect(isReadyToPublish(complete)).toBe(true)
+  })
+
+  it('separates publish readiness from post-publish loop closure', () => {
+    const readyToPublish = {
+      signal: { exists: true },
+      research: { exists: true },
+      topic: { exists: true },
+      script: { exists: true },
+      assets: { exists: true },
+      packaging: { exists: true },
+      production: { exists: true },
+      distribution: { exists: true },
+      metrics: { exists: false },
+      review: { exists: false },
+    }
+    expect(isReadyToPublish(readyToPublish)).toBe(true)
+    expect(isPipelineComplete(readyToPublish)).toBe(false)
   })
 })

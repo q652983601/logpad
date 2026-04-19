@@ -39,10 +39,16 @@ export default function QuickNote() {
     setTimeout(() => setMessage(''), 2500)
   }, [])
 
-  function openModal() {
+  const openModal = useCallback(() => {
     setContent('')
     setShowModal(true)
-  }
+  }, [])
+
+  useEffect(() => {
+    const openQuickNote = () => openModal()
+    window.addEventListener('logpad:quick-note', openQuickNote)
+    return () => window.removeEventListener('logpad:quick-note', openQuickNote)
+  }, [openModal])
 
   function closeModal() {
     setShowModal(false)
@@ -73,6 +79,7 @@ export default function QuickNote() {
         body: JSON.stringify({
           id,
           title: note.content,
+          description: note.content,
           platforms: ['youtube', 'douyin', 'bilibili'],
         }),
       })
@@ -218,7 +225,7 @@ export default function QuickNote() {
 
       {/* Toast */}
       {message && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[70] bg-surface-3 text-text text-sm px-4 py-2 rounded-full border border-border shadow-lg">
+        <div role="status" aria-live="polite" className="fixed top-6 left-1/2 -translate-x-1/2 z-[70] bg-surface-3 text-text text-sm px-4 py-2 rounded-full border border-border shadow-lg">
           {message}
         </div>
       )}

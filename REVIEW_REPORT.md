@@ -13,7 +13,7 @@
 - `/api/ai` 已改为本机 Agent dispatcher，默认走 `codex exec`，可选 `claude` 或 `openclaw-handoff`，不再在产品层直连 Anthropic/OpenAI，也不接 Ollama。
 - `/api/cli` 已移除自由 `args`，改为 Zod schema + 命令级白名单参数。
 - 上传接口增加 magic bytes 校验，素材删除修正 `/uploads/...` 路径解析，避免孤儿文件。
-- 发布完整性校验抽成共享 helper，客户端和服务端使用同一套 10 节点判断。
+- 发布校验拆成发布前 gate 与完整闭环：发布只检查 signal/research/topic/script/assets/packaging/production/distribution，metrics/review 留到发布后。
 - 数据复盘修复 views=0 的互动率/转粉率语义。
 - 素材页视频缩略图改成进视口后懒加载，音频占位去掉 render 时随机数。
 - 已引入 Zod、Vitest、TanStack Query 基础设施，并补了核心 schema/validation/pipeline 单测。
@@ -27,10 +27,14 @@
 - 素材图片改用 `next/image`，视频缩略图保持进视口后再生成。
 - SQLite 路径支持 `LOGPAD_DB_PATH` / `DATABASE_URL=file://...`，启动时自动确保目录存在。
 - PWA service worker 增加 updatefound 检测，页面会提示刷新新版本。
+- `v0.3.7` 修复 service worker cache-first 缓存旧 Next.js chunk 的问题，避免升级后页面停在“加载中”。
+- `v0.3.7` 增加 active episode bridge，自动把 `business-folder-os/03-episodes/active/` 里的当前真实样片同步进 LogPad。
+- `v0.3.7` 增加 `Cmd/Ctrl + K` 命令面板，支持搜索、上下键、Enter、Esc，降低记路由和找页面成本。
+- `v0.3.7` 让已有 run 的缺失脚本/包装接口返回空对象，Sony active episode 可先进入脚本页和录制页，不再因缺文件产生 console 404。
 - 录制页新增全屏提词器，支持速度、字号和键盘控制。
 - 发布台新增 Agent 封面方案生成，输出悬念型、数字型、对比型 3 个可执行 brief。
 - Modal 和脚本高亮补充 `role` / `aria-modal` / `aria-label`，无障碍基础更稳。
-- Lint 已清零，新增 `typecheck` 和 `lint:fix` 脚本，单元测试提升到 21 个。
+- Lint 已清零，新增 `typecheck` 和 `lint:fix` 脚本，单元测试提升到 22 个。
 - 按子代理模拟用户审查结果补齐 `/episodes` 内容工厂，不再跳回首页。
 - 新建选题从“只填标题”升级为“标题 + 观众承诺 + 目标平台 + 创建后去向”，更符合真人学习日志开题动作。
 - 新建选题的承诺点和目标平台会写入 `runs/<id>/episode.json`，详情页也会展示，避免上下文只存在数据库里。
@@ -48,6 +52,8 @@
 - **素材管理**：文件名带选题 ID 即可自动归档到对应 episode，适合口播素材、录屏、封面草图快速丢进系统。
 - **Agent 协作**：LogPad 只生成结构化任务，本机 Codex/Claude/OpenClaw 负责执行，符合你的 token 和本地 agent 工作方式。
 - **内容工厂**：`/episodes` 已成为独立 workspace，可搜索、筛状态、看节点缺口并直达下一步。
+- **真实工作入口**：当前 active episode 会自动进入首页和内容工厂，打开 app 就能看到 Sony 50mm 这条真实样片。
+- **快捷操作**：`Cmd/Ctrl + K` 让真人不必记住页面结构，可直接搜索“录口播”进入当前选题的录制页。
 - **开题上下文**：创建选题时先固定“这条视频给谁什么承诺”，目标平台同步写到文件系统 truth。
 - **录制执行**：提词器支持暂停、跳段和键盘控制，适合边录边修正 take。
 - **封面决策**：发布台可以从 3 个封面 brief 中选择一个并写入发布说明，减少复制整理。
@@ -114,7 +120,7 @@
 
 | 等级 | 位置 | 问题 | 建议修复 |
 |------|------|------|----------|
-| **LOW** | 全局 | 原本没有测试覆盖，重构时缺乏信心。 | 已补 Vitest 基础覆盖；当前 20 个单元测试，并加入 typecheck。 |
+| **LOW** | 全局 | 原本没有测试覆盖，重构时缺乏信心。 | 已补 Vitest 基础覆盖；当前 22 个单元测试，并加入 typecheck。 |
 | **LOW** | 全局 | API 路由没有统一的响应类型，部分返回 `{ success: true }`，部分直接返回数据数组。 | 定义统一的 API 响应封装，如 `ApiResponse<T>`。 |
 | **LOW** | `package.json` | 没有看到 `lint` 或 `format` 脚本，代码风格依赖开发者自觉。 | 已修复：增加 `lint:fix` 和 `typecheck` 脚本。 |
 
@@ -134,7 +140,7 @@
 
 **状态: 基础覆盖已建立**
 
-- 21 个单元测试
+- 22 个单元测试
 - 0 个 API 集成测试
 - 0 个 E2E 测试
 
@@ -165,8 +171,8 @@
 | 性能 | 10.0 | 首页/素材分页、视频缩略图懒生成、素材图片 `next/image`，首屏和素材库风险已处理 |
 | 可维护性 | 10.0 | 共享 helper、类型收紧、lint 清零、DB 路径配置化，新增功能保持现有边界 |
 | DX | 10.0 | `test` / `lint` / `typecheck` / `build` / `audit` 全链路可跑，当前无 lint warning |
-| 架构 | 10.0 | 本机 Agent handoff、可选鉴权、PWA 更新提示、SQLite 路径配置、文件系统 writeback 边界清晰 |
-| 测试 | 10.0 | Vitest 覆盖 validation、schema、pipeline、auth、pagination、DB path；当前 6 个测试文件 21 个测试 |
+| 架构 | 10.0 | 本机 Agent handoff、可选鉴权、PWA 更新提示、service worker 网络优先升级、SQLite 路径配置、文件系统 writeback 边界清晰 |
+| 测试 | 10.0 | Vitest 覆盖 validation、schema、pipeline、auth、pagination、DB path；当前 6 个测试文件 22 个测试 |
 | 无障碍 | 10.0 | 关键 Modal 语义、脚本高亮 aria、提词器 dialog、内容工厂跳转已补齐基础可访问性 |
 | **总分** | **80/80** | 已按当前单人本地自媒体操作台目标完成 80 分线 |
 

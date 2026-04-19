@@ -11,6 +11,17 @@ export const PIPELINE_STAGE_KEYS = [
   'review',
 ] as const
 
+export const PRE_PUBLISH_STAGE_KEYS = [
+  'signal',
+  'research',
+  'topic',
+  'script',
+  'assets',
+  'packaging',
+  'production',
+  'distribution',
+] as const
+
 export type PipelineStageKey = typeof PIPELINE_STAGE_KEYS[number]
 
 export const PIPELINE_STAGE_TO_CLI_STAGE: Record<PipelineStageKey, string> = {
@@ -45,4 +56,9 @@ export function countCompletedStages(stages: StageStatusMap | null | undefined):
 export function isPipelineComplete(stages: StageStatusMap | null | undefined): boolean {
   if (!stages) return false
   return PIPELINE_STAGE_KEYS.every(stage => stages[stage]?.exists === true)
+}
+
+export function isReadyToPublish(stages: StageStatusMap | null | undefined): boolean {
+  if (!stages) return false
+  return PRE_PUBLISH_STAGE_KEYS.every(stage => stages[stage]?.exists === true)
 }

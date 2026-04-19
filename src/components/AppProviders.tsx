@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import CommandPalette from './CommandPalette'
 
 export default function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -23,6 +24,7 @@ export default function AppProviders({ children }: { children: React.ReactNode }
   return (
     <QueryClientProvider client={queryClient}>
       {children}
+      <CommandPalette />
       {updateReady && (
         <div className="fixed bottom-6 left-1/2 z-[90] -translate-x-1/2 rounded-lg border border-accent/30 bg-surface px-4 py-3 shadow-xl">
           <div className="flex items-center gap-3">

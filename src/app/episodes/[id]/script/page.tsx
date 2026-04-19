@@ -374,7 +374,7 @@ export default function ScriptEditor() {
               <span className="text-sm text-text-3 font-mono">{id}</span>
               <span className="px-2 py-0.5 rounded-full text-xs bg-accent/15 text-accent">脚本编辑</span>
             </div>
-            <h1 className="text-2xl font-bold">内容工厂</h1>
+            <h1 className="text-2xl font-bold">脚本工作台</h1>
           </div>
           <div className="flex items-center gap-3">
             {saveError && (

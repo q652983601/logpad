@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { readPackaging } from '@/lib/pipeline'
+import { readPackaging, runExists } from '@/lib/pipeline'
 import { validateRunId } from '@/lib/validation'
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -17,10 +17,13 @@ export async function GET(
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
     }
+    if (!runExists(id)) {
+      return errorResponse('Run not found', undefined, 404)
+    }
 
     const packaging = readPackaging(id)
     if (!packaging) {
-      return errorResponse('Packaging not found', undefined, 404)
+      return NextResponse.json({})
     }
     return NextResponse.json(packaging)
   } catch (err) {

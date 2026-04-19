@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { readScript, writeScript, backupScript, listScriptBackups, readScriptBackup } from '@/lib/pipeline'
+import { readScript, writeScript, backupScript, listScriptBackups, readScriptBackup, runExists } from '@/lib/pipeline'
 import { validateRunId, validateScriptData } from '@/lib/validation'
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -16,6 +16,9 @@ export async function GET(
     const { id } = await params
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
+    }
+    if (!runExists(id)) {
+      return errorResponse('Run not found', undefined, 404)
     }
 
     const { searchParams } = new URL(request.url)
@@ -37,7 +40,7 @@ export async function GET(
 
     const script = readScript(id)
     if (!script) {
-      return errorResponse('Script not found', undefined, 404)
+      return NextResponse.json({})
     }
     return NextResponse.json(script)
   } catch (err) {

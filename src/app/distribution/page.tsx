@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ErrorBanner from '@/components/ErrorBanner'
-import { PIPELINE_STAGE_KEYS, countCompletedStages, isPipelineComplete } from '@/lib/pipeline-status'
+import { PIPELINE_STAGE_KEYS, PRE_PUBLISH_STAGE_KEYS, countCompletedStages, isReadyToPublish } from '@/lib/pipeline-status'
 import { cn } from '@/lib/utils'
 
 interface PublishingPlan {
@@ -242,8 +242,8 @@ export default function DistributionPage() {
   async function markPublished() {
     if (!selectedPlan) return
     const stages = stagesMap[selectedPlan.episode_id] || {}
-    if (!isPipelineComplete(stages)) {
-      alert('还有未完成的 pipeline 节点，无法发布')
+    if (!isReadyToPublish(stages)) {
+      alert('还有发布前 gate 未完成，无法发布')
       return
     }
     const res = await fetch(`/api/publishing/${selectedPlan.id}`, {
@@ -334,17 +334,18 @@ export default function DistributionPage() {
   function renderChecklist(episodeId: string) {
     const stages = stagesMap[episodeId] || {}
     const doneCount = countCompletedStages(stages)
-    const allDone = isPipelineComplete(stages)
+    const publishReady = isReadyToPublish(stages)
+    const prePublishDone = PRE_PUBLISH_STAGE_KEYS.filter(key => stages[key]?.exists).length
     return (
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-text-2">发布 Checklist</span>
-          <span className={cn('text-[10px] font-medium', allDone ? 'text-green' : 'text-orange')}>
-            {doneCount}/{PIPELINE_STAGE_KEYS.length}
+          <span className={cn('text-[10px] font-medium', publishReady ? 'text-green' : 'text-orange')}>
+            {prePublishDone}/{PRE_PUBLISH_STAGE_KEYS.length} 发布前
           </span>
         </div>
         <div className="space-y-1.5">
-          {PIPELINE_STAGE_KEYS.map(key => {
+          {PRE_PUBLISH_STAGE_KEYS.map(key => {
             const done = !!stages[key]?.exists
             return (
               <div key={key} className="flex items-center gap-2">
@@ -356,8 +357,11 @@ export default function DistributionPage() {
             )
           })}
         </div>
-        {!allDone && (
-          <p className="text-[10px] text-orange mt-2">还有未完成的 pipeline 节点，无法发布</p>
+        {!publishReady && (
+          <p className="text-[10px] text-orange mt-2">还有发布前 gate 未完成，先补 production/distribution 之前的缺口。</p>
+        )}
+        {publishReady && doneCount < PIPELINE_STAGE_KEYS.length && (
+          <p className="text-[10px] text-text-3 mt-2">metrics / review 会在发布后补，不阻塞标记已发布。</p>
         )}
       </div>
     )
@@ -843,13 +847,13 @@ export default function DistributionPage() {
                   </button>
                   {selectedPlan.status !== 'published' && (() => {
                     const stages = stagesMap[selectedPlan.episode_id] || {}
-                    const allDone = isPipelineComplete(stages)
-                    return allDone ? (
+                    const publishReady = isReadyToPublish(stages)
+                    return publishReady ? (
                       <button onClick={markPublished} className="px-4 py-2 bg-green/15 text-green rounded-lg text-sm font-medium hover:bg-green/25">
                         标记为已发布
                       </button>
                     ) : (
-                      <span className="px-4 py-2 bg-surface-3 text-text-3 rounded-lg text-sm cursor-not-allowed" title="Pipeline 节点未完成">
+                      <span className="px-4 py-2 bg-surface-3 text-text-3 rounded-lg text-sm cursor-not-allowed" title="发布前 gate 未完成">
                         标记为已发布
                       </span>
                     )

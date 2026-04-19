@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getPublishingPlan, updatePublishingPlan, deletePublishingPlan } from '@/lib/db'
 import { getRun } from '@/lib/pipeline'
-import { isPipelineComplete } from '@/lib/pipeline-status'
+import { isReadyToPublish } from '@/lib/pipeline-status'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -32,7 +32,8 @@ export async function PATCH(
   }
   const body = await request.json()
 
-  // Gate: publishing requires all pipeline stages complete
+  // Gate: publishing only requires the pre-publish stages. Metrics/review happen
+  // after the public post exists.
   if (body.status === 'published') {
     const plan = getPublishingPlan(id)
     if (!plan) {
@@ -42,8 +43,8 @@ export async function PATCH(
     if (!run) {
       return NextResponse.json({ error: 'Episode run not found' }, { status: 400 })
     }
-    if (!isPipelineComplete(run.stages)) {
-      return NextResponse.json({ error: 'Cannot publish: pipeline not complete' }, { status: 403 })
+    if (!isReadyToPublish(run.stages)) {
+      return NextResponse.json({ error: 'Cannot publish: pre-publish gates are not complete' }, { status: 403 })
     }
   }
 
