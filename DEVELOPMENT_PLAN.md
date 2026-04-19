@@ -1,8 +1,8 @@
 # LogPad 开发计划
 
-> 版本: v0.4.0
+> 版本: v0.4.1
 > 日期: 2026-04-19
-> 状态: 80/80 质量线完成，本机 Agent routing、创作者操作台、active episode bridge、命令面板、口述资料库、内容工厂、提词器、录制 Take 写回、本地文件夹素材索引、封面 brief、分页、鉴权、service worker 升级稳定性、测试链路已完成
+> 状态: 80/80 质量线完成，本机 Agent routing、创作者操作台、默认浅色主题和深浅切换、active episode bridge、命令面板、口述资料库、内容工厂、提词器、录制 Take 写回、本地文件夹素材索引、封面 brief、分页、鉴权、service worker 升级稳定性、测试链路已完成
 
 ---
 
@@ -165,6 +165,7 @@
 | PWA 更新提示 | ✅ |
 | Service worker 网络优先升级，避免旧 chunk 卡住页面 | ✅ |
 | Lint / Typecheck / Test 验证链路 | ✅ |
+| 默认浅色主题 + 深浅切换 | ✅ |
 
 ### 3.5 自媒体产能增强
 

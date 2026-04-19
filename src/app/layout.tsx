@@ -19,10 +19,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#6366f1" />
+        <meta name="theme-color" content="#f7f9fc" />
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`(function () {
+  try {
+    var theme = localStorage.getItem('logpad-theme');
+    if (theme !== 'dark' && theme !== 'light') theme = 'light';
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0a0a0f' : '#f7f9fc');
+  } catch (e) {
+    document.documentElement.dataset.theme = 'light';
+  }
+})();`}
+        </Script>
       </head>
       <body className="antialiased min-h-screen">
         <AppProviders>

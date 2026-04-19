@@ -8,6 +8,29 @@ This project follows a pragmatic SemVer-style workflow:
 - `MINOR`: user-facing product capability additions.
 - `PATCH`: bug fixes, safety improvements, documentation, validation, and small UX polish.
 
+## [0.4.1] - 2026-04-19
+
+### Added
+
+- Added a persisted light/dark theme switch in the sidebar.
+- Added pre-hydration theme initialization so the app opens in the saved theme without a dark flash.
+
+### Changed
+
+- Changed the default theme to light mode for better readability during long creator work sessions.
+- Converted Tailwind color tokens to CSS variables so existing pages follow the active theme.
+- Updated the full-screen teleprompter to follow the active theme instead of always using black.
+- Updated chart accents and PWA theme colors to respect the shared theme tokens.
+- Bumped the service worker cache name to `logpad-v0.4.1`.
+
+### Verification
+
+- `npm test`: passed, 6 files, 25 tests.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- Playwright smoke: `/` and `/voice` loaded in light mode, theme toggle switched dark/light, console errors 0.
+
 ## [0.4.0] - 2026-04-19
 
 ### Added

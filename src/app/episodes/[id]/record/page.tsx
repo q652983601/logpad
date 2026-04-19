@@ -448,24 +448,24 @@ export default function RecordPage() {
 
       {prompterOpen && (
         <div
-          className="fixed inset-0 z-[80] bg-black text-white flex flex-col"
+          className="fixed inset-0 z-[80] bg-bg text-text flex flex-col"
           role="dialog"
           aria-modal="true"
           aria-labelledby="prompter-title"
         >
-          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
-              <p className="text-xs text-white/45 font-mono">{id}</p>
+              <p className="text-xs text-text-3 font-mono">{id}</p>
               <h2 id="prompter-title" className="text-lg font-semibold">全屏提词器</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <button
                 onClick={() => setPrompterPaused(paused => !paused)}
-                className="rounded-md bg-white/10 px-3 py-1.5 text-white hover:bg-white/15"
+                className="rounded-md bg-surface-2 px-3 py-1.5 text-text hover:bg-surface-3"
               >
                 {prompterPaused ? '继续' : '暂停'}
               </button>
-              <label className="text-white/60">速度</label>
+              <label className="text-text-2">速度</label>
               <input
                 type="range"
                 min="20"
@@ -473,7 +473,7 @@ export default function RecordPage() {
                 value={prompterSpeed}
                 onChange={e => setPrompterSpeed(Number(e.target.value))}
               />
-              <label className="text-white/60 ml-2">字号</label>
+              <label className="text-text-2 ml-2">字号</label>
               <input
                 type="range"
                 min="24"
@@ -483,7 +483,7 @@ export default function RecordPage() {
               />
               <button
                 onClick={() => setPrompterOpen(false)}
-                className="ml-2 rounded-md border border-white/20 px-3 py-1.5 text-white/80 hover:bg-white/10"
+                className="ml-2 rounded-md border border-border px-3 py-1.5 text-text-2 hover:bg-surface-2"
               >
                 关闭
               </button>
@@ -491,8 +491,8 @@ export default function RecordPage() {
           </div>
           <div className="relative flex-1 overflow-hidden">
             <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-px bg-accent/70" />
-            <div className="absolute left-4 top-4 z-10 hidden max-h-[calc(100%-2rem)] w-56 overflow-auto rounded-lg border border-white/10 bg-black/60 p-2 md:block">
-              <p className="mb-2 px-2 text-xs text-white/45">从段落开始</p>
+            <div className="absolute left-4 top-4 z-10 hidden max-h-[calc(100%-2rem)] w-56 overflow-auto rounded-lg border border-border bg-surface/90 p-2 shadow-lg md:block">
+              <p className="mb-2 px-2 text-xs text-text-3">从段落开始</p>
               {beats.map((beat, idx) => (
                 <button
                   key={`${beat.name}-${idx}`}
@@ -502,7 +502,7 @@ export default function RecordPage() {
                     setPrompterPaused(false)
                   }}
                   className={`mb-1 block w-full rounded-md px-2 py-2 text-left text-xs transition-colors ${
-                    prompterBeat === idx ? 'bg-accent text-white' : 'text-white/70 hover:bg-white/10'
+                    prompterBeat === idx ? 'bg-accent text-white' : 'text-text-2 hover:bg-surface-2'
                   }`}
                 >
                   {idx + 1}. {beat.name}
@@ -521,7 +521,7 @@ export default function RecordPage() {
               {`\n\n\n${prompterText}\n\n\n`}
             </div>
           </div>
-          <div className="shrink-0 border-t border-white/10 px-4 py-2 text-center text-xs text-white/45">
+          <div className="shrink-0 border-t border-border px-4 py-2 text-center text-xs text-text-3">
             Space 暂停/继续，←/→ 跳段，↑/↓ 调速，Esc 退出
           </div>
           <style jsx>{`

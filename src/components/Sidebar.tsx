@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import ThemeToggle from './ThemeToggle'
 
 const navItems = [
   { icon: '◆', label: '选题看板', href: '/' },
@@ -68,7 +69,8 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="p-4 border-t border-border">
+      <div className="space-y-3 border-t border-border p-4">
+        <ThemeToggle />
         <div className="bg-surface-2 rounded-lg p-3">
           <p className="text-xs text-text-3">当前方向</p>
           <p className="text-xs text-text mt-1 font-medium">ITP 型好奇者学习日志</p>

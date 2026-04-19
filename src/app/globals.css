@@ -3,25 +3,43 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0a0a0f;
-  --surface: #12121a;
-  --surface-2: #1a1a25;
-  --surface-3: #222233;
-  --border: rgba(255,255,255,0.06);
-  --text: #f0f0f5;
-  --text-2: #a0a0b0;
-  --text-3: #606070;
-  --accent: #6366f1;
-  --accent-2: #a855f7;
-  --green: #22c55e;
-  --orange: #f59e0b;
+  color-scheme: light;
+  --bg: 247 249 252;
+  --surface: 255 255 255;
+  --surface-2: 241 245 249;
+  --surface-3: 226 232 240;
+  --border: 213 221 232;
+  --text: 20 24 31;
+  --text-2: 82 94 111;
+  --text-3: 118 132 151;
+  --accent: 79 70 229;
+  --accent-2: 8 145 178;
+  --green: 5 150 105;
+  --orange: 217 119 6;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: 10 10 15;
+  --surface: 18 18 26;
+  --surface-2: 26 26 37;
+  --surface-3: 34 34 51;
+  --border: 48 48 66;
+  --text: 240 240 245;
+  --text-2: 160 160 176;
+  --text-3: 96 96 112;
+  --accent: 99 102 241;
+  --accent-2: 168 85 247;
+  --green: 34 197 94;
+  --orange: 245 158 11;
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
   font-family: 'Inter', -apple-system, sans-serif;
   line-height: 1.6;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 @layer utilities {

@@ -1,7 +1,7 @@
 # LogPad Human Usability Benchmarks
 
 > Date: 2026-04-19
-> Version: v0.4.0
+> Version: v0.4.1
 > Goal: make LogPad easier for a real creator to operate without remembering folder paths, page structure, or agent handoff details.
 
 ## Research Inputs
@@ -60,6 +60,7 @@ This upgrade uses four practical references:
 | Recording take status was static and not durable. | Added beat-level Take management with save to `07-production/takes.json`. |
 | Scattered voice thoughts were outside the system. | Added Voice Inbox for upload, transcript, summary, grouping, Agent discussion, and topic conversion. |
 | Large local media folders were hard to manage. | Added local folder indexing in the asset library without copying original files. |
+| The dark-only interface reduced readability for long work sessions. | Added a default light theme with a persisted dark/light switch. |
 
 ## Next Measurement Loop
 

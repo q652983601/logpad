@@ -1,7 +1,7 @@
 # LogPad Next Development
 
 > Date: 2026-04-19
-> Current release: v0.4.0
+> Current release: v0.4.1
 
 ## Current State
 
@@ -13,6 +13,7 @@ LogPad is usable for Wilson's local self-media loop:
 - Recording page has a durable Take manager that writes to `runs/<episode_id>/07-production/takes.json`.
 - Voice Inbox can capture audio/text ideas, combine selected notes, run local Agent discussion, and convert a collection into an episode.
 - Asset library can index a local folder without copying the original files and preview local audio/video through Range-capable file serving.
+- The app now defaults to light mode and can switch between light/dark from the sidebar.
 - Publishing gate no longer waits for post-publish metrics/review.
 - Smoke tests passed for the core pages.
 

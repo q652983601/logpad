@@ -109,7 +109,13 @@ function BarChart({ data, labelKey, valueKey, color = 'accent', max }: {
 }) {
   const values = data.map(d => Number(d[valueKey]) || 0)
   const chartMax = max || Math.max(...values, 1)
-  const barColor = color === 'accent' ? '#6366f1' : color === 'green' ? '#22c55e' : color === 'orange' ? '#f59e0b' : '#a855f7'
+  const barColor = color === 'accent'
+    ? 'rgb(var(--accent))'
+    : color === 'green'
+      ? 'rgb(var(--green))'
+      : color === 'orange'
+        ? 'rgb(var(--orange))'
+        : 'rgb(var(--accent-2))'
 
   return (
     <div className="space-y-2">
@@ -153,7 +159,7 @@ function LineChart({ data, valueKey }: { data: Record<string, unknown>[]; valueK
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
         <polyline
           fill="none"
-          stroke="#6366f1"
+          stroke="rgb(var(--accent))"
           strokeWidth="2"
           points={points}
           vectorEffect="non-scaling-stroke"
@@ -162,7 +168,7 @@ function LineChart({ data, valueKey }: { data: Record<string, unknown>[]; valueK
           const x = (i / (values.length - 1 || 1)) * 100
           const y = 100 - ((v - min) / range) * 100
           return (
-            <circle key={i} cx={x} cy={y} r="3" fill="#6366f1" />
+            <circle key={i} cx={x} cy={y} r="3" fill="rgb(var(--accent))" />
           )
         })}
       </svg>
