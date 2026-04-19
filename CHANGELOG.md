@@ -8,6 +8,28 @@ This project follows a pragmatic SemVer-style workflow:
 - `MINOR`: user-facing product capability additions.
 - `PATCH`: bug fixes, safety improvements, documentation, validation, and small UX polish.
 
+## [0.3.8] - 2026-04-19
+
+### Added
+
+- Added `/api/runs/[id]/takes` for durable recording take writeback in `runs/<episode_id>/07-production/takes.json`.
+- Added recording Take management to the recording studio: beat status, take rows, asset path, notes, usable/backup/retake labels, and save feedback.
+- Added `NEXT_DEVELOPMENT.md` for the next development session.
+
+### Changed
+
+- Bumped the service worker cache name to `logpad-v0.3.8`.
+- Updated validation docs to 23 unit tests.
+
+### Verification
+
+- `npm test`: passed, 6 files, 23 tests.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- `npm audit`: passed, 0 vulnerabilities.
+- Playwright smoke: recording page loaded, Take 管理 rendered, and console errors 0.
+
 ## [0.3.7] - 2026-04-19
 
 ### Added

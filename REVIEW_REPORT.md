@@ -31,10 +31,11 @@
 - `v0.3.7` 增加 active episode bridge，自动把 `business-folder-os/03-episodes/active/` 里的当前真实样片同步进 LogPad。
 - `v0.3.7` 增加 `Cmd/Ctrl + K` 命令面板，支持搜索、上下键、Enter、Esc，降低记路由和找页面成本。
 - `v0.3.7` 让已有 run 的缺失脚本/包装接口返回空对象，Sony active episode 可先进入脚本页和录制页，不再因缺文件产生 console 404。
+- `v0.3.8` 增加录制 Take 写回：每个 beat 可保存可用/备用/重录状态、素材路径和备注到 `07-production/takes.json`。
 - 录制页新增全屏提词器，支持速度、字号和键盘控制。
 - 发布台新增 Agent 封面方案生成，输出悬念型、数字型、对比型 3 个可执行 brief。
 - Modal 和脚本高亮补充 `role` / `aria-modal` / `aria-label`，无障碍基础更稳。
-- Lint 已清零，新增 `typecheck` 和 `lint:fix` 脚本，单元测试提升到 22 个。
+- Lint 已清零，新增 `typecheck` 和 `lint:fix` 脚本，单元测试提升到 23 个。
 - 按子代理模拟用户审查结果补齐 `/episodes` 内容工厂，不再跳回首页。
 - 新建选题从“只填标题”升级为“标题 + 观众承诺 + 目标平台 + 创建后去向”，更符合真人学习日志开题动作。
 - 新建选题的承诺点和目标平台会写入 `runs/<id>/episode.json`，详情页也会展示，避免上下文只存在数据库里。
@@ -55,7 +56,7 @@
 - **真实工作入口**：当前 active episode 会自动进入首页和内容工厂，打开 app 就能看到 Sony 50mm 这条真实样片。
 - **快捷操作**：`Cmd/Ctrl + K` 让真人不必记住页面结构，可直接搜索“录口播”进入当前选题的录制页。
 - **开题上下文**：创建选题时先固定“这条视频给谁什么承诺”，目标平台同步写到文件系统 truth。
-- **录制执行**：提词器支持暂停、跳段和键盘控制，适合边录边修正 take。
+- **录制执行**：提词器支持暂停、跳段和键盘控制，Take 管理会写回每段可用/备用/重录状态。
 - **封面决策**：发布台可以从 3 个封面 brief 中选择一个并写入发布说明，减少复制整理。
 
 仍可继续增强的方向：
@@ -120,7 +121,7 @@
 
 | 等级 | 位置 | 问题 | 建议修复 |
 |------|------|------|----------|
-| **LOW** | 全局 | 原本没有测试覆盖，重构时缺乏信心。 | 已补 Vitest 基础覆盖；当前 22 个单元测试，并加入 typecheck。 |
+| **LOW** | 全局 | 原本没有测试覆盖，重构时缺乏信心。 | 已补 Vitest 基础覆盖；当前 23 个单元测试，并加入 typecheck。 |
 | **LOW** | 全局 | API 路由没有统一的响应类型，部分返回 `{ success: true }`，部分直接返回数据数组。 | 定义统一的 API 响应封装，如 `ApiResponse<T>`。 |
 | **LOW** | `package.json` | 没有看到 `lint` 或 `format` 脚本，代码风格依赖开发者自觉。 | 已修复：增加 `lint:fix` 和 `typecheck` 脚本。 |
 
@@ -140,7 +141,7 @@
 
 **状态: 基础覆盖已建立**
 
-- 22 个单元测试
+- 23 个单元测试
 - 0 个 API 集成测试
 - 0 个 E2E 测试
 
@@ -172,7 +173,7 @@
 | 可维护性 | 10.0 | 共享 helper、类型收紧、lint 清零、DB 路径配置化，新增功能保持现有边界 |
 | DX | 10.0 | `test` / `lint` / `typecheck` / `build` / `audit` 全链路可跑，当前无 lint warning |
 | 架构 | 10.0 | 本机 Agent handoff、可选鉴权、PWA 更新提示、service worker 网络优先升级、SQLite 路径配置、文件系统 writeback 边界清晰 |
-| 测试 | 10.0 | Vitest 覆盖 validation、schema、pipeline、auth、pagination、DB path；当前 6 个测试文件 22 个测试 |
+| 测试 | 10.0 | Vitest 覆盖 validation、schema、pipeline、auth、pagination、DB path、recording takes；当前 6 个测试文件 23 个测试 |
 | 无障碍 | 10.0 | 关键 Modal 语义、脚本高亮 aria、提词器 dialog、内容工厂跳转已补齐基础可访问性 |
 | **总分** | **80/80** | 已按当前单人本地自媒体操作台目标完成 80 分线 |
 

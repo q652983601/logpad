@@ -1,8 +1,8 @@
 # LogPad 开发计划
 
-> 版本: v0.3.7
+> 版本: v0.3.8
 > 日期: 2026-04-19
-> 状态: 80/80 质量线完成，本机 Agent routing、创作者操作台、active episode bridge、命令面板、内容工厂、提词器、封面 brief、分页、鉴权、service worker 升级稳定性、测试链路已完成
+> 状态: 80/80 质量线完成，本机 Agent routing、创作者操作台、active episode bridge、命令面板、内容工厂、提词器、录制 Take 写回、封面 brief、分页、鉴权、service worker 升级稳定性、测试链路已完成
 
 ---
 

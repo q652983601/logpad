@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentTaskSchema, aiRequestSchema, cliRequestSchema, metricPatchSchema, metricPayloadSchema, runCreateSchema } from './api-schemas'
+import { agentTaskSchema, aiRequestSchema, cliRequestSchema, metricPatchSchema, metricPayloadSchema, recordingTakesSchema, runCreateSchema } from './api-schemas'
 
 describe('api schemas', () => {
   it('rejects arbitrary CLI args', () => {
@@ -63,6 +63,33 @@ describe('api schemas', () => {
       id: '20260419-topic',
       title: 'bad',
       description: 'x'.repeat(1001),
+    }).success).toBe(false)
+  })
+
+  it('validates recording take writebacks', () => {
+    expect(recordingTakesSchema.safeParse({
+      beats: [{
+        beat_index: 0,
+        beat_name: 'Hook',
+        status: 'usable',
+        selected_take_id: 'take-1',
+        takes: [{
+          id: 'take-1',
+          label: 'Take 1',
+          status: 'usable',
+          asset_path: '/uploads/20260419/hook.mov',
+          notes: 'best opening',
+        }],
+      }],
+      updated_at: new Date().toISOString(),
+    }).success).toBe(true)
+    expect(recordingTakesSchema.safeParse({
+      beats: [{
+        beat_index: 0,
+        beat_name: 'Hook',
+        status: 'done',
+        takes: [],
+      }],
     }).success).toBe(false)
   })
 })

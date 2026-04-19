@@ -157,6 +157,28 @@ export const timelineSchema = z.object({
   })).max(200),
 }).passthrough()
 
+export const takeStatusSchema = z.enum(['not_recorded', 'recorded', 'usable', 'backup', 'needs_retake'])
+
+export const recordingTakesSchema = z.object({
+  beats: z.array(z.object({
+    beat_index: z.number().int().min(0).max(500),
+    beat_name: z.string().min(1).max(160),
+    status: takeStatusSchema,
+    selected_take_id: z.string().max(100).optional(),
+    notes: z.string().max(1000).optional(),
+    takes: z.array(z.object({
+      id: z.string().min(1).max(100).regex(/^[\w.-]+$/),
+      label: z.string().min(1).max(80),
+      status: takeStatusSchema,
+      asset_path: z.string().max(500).optional(),
+      notes: z.string().max(1000).optional(),
+      created_at: z.string().max(80).optional(),
+      updated_at: z.string().max(80).optional(),
+    })).max(20),
+  })).max(200),
+  updated_at: z.string().max(80).optional(),
+}).strict()
+
 export function formatZodError(error: z.ZodError): string {
   return error.issues.map(issue => {
     const path = issue.path.length ? `${issue.path.join('.')}: ` : ''

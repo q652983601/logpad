@@ -258,6 +258,17 @@ export function writeRunJson(id: string, subdir: string, filename: string, data:
   fs.writeFileSync(path.join(dir, filename), JSON.stringify(data, null, 2))
 }
 
+export function readRunJson(id: string, subdir: string, filename: string): unknown | null {
+  assertValidRunId(id)
+  const filePath = path.join(RUNS_DIR, id, subdir, filename)
+  if (!fs.existsSync(filePath)) return null
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
 export function appendToTruthLog(logPath: string, entry: string): void {
   const truthDir = path.join(MEDIA_CODEX_ROOT, 'truth')
   if (!fs.existsSync(truthDir)) {

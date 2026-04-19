@@ -1,7 +1,7 @@
 # LogPad Human Usability Benchmarks
 
 > Date: 2026-04-19
-> Version: v0.3.7
+> Version: v0.3.8
 > Goal: make LogPad easier for a real creator to operate without remembering folder paths, page structure, or agent handoff details.
 
 ## Research Inputs
@@ -48,7 +48,7 @@ This upgrade uses four practical references:
 6. **Keyboard-first operation**
    Command palette supports search, arrows, Enter, and Escape.
 
-## v0.3.7 Implementation Map
+## v0.3.7-v0.3.8 Implementation Map
 
 | Problem | Shipped fix |
 |---|---|
@@ -57,6 +57,7 @@ This upgrade uses four practical references:
 | Publishing could be blocked by `metrics` and `review`, which are post-publish stages. | Split `isReadyToPublish` from full `isPipelineComplete`. |
 | Smoke test exposed stale service worker chunks after upgrade. | Changed service worker to network-first for app pages, API, and Next chunks. |
 | Quick-note ideas had weak system feedback. | Added command palette trigger, topic description writeback, and accessible status feedback. |
+| Recording take status was static and not durable. | Added beat-level Take management with save to `07-production/takes.json`. |
 
 ## Next Measurement Loop
 
