@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentTaskSchema, aiRequestSchema, cliRequestSchema, metricPatchSchema, metricPayloadSchema, recordingTakesSchema, runCreateSchema } from './api-schemas'
+import { agentTaskSchema, aiRequestSchema, assetFolderImportSchema, cliRequestSchema, metricPatchSchema, metricPayloadSchema, recordingTakesSchema, runCreateSchema, voiceCollectionCreateSchema, voiceNotePatchSchema } from './api-schemas'
 
 describe('api schemas', () => {
   it('rejects arbitrary CLI args', () => {
@@ -90,6 +90,36 @@ describe('api schemas', () => {
         status: 'done',
         takes: [],
       }],
+    }).success).toBe(false)
+  })
+
+  it('validates voice inbox payloads', () => {
+    expect(voiceNotePatchSchema.safeParse({
+      title: '正能量心理学想法',
+      transcript: '我今天想到一个点...',
+      key_points: ['观点一', '观点二'],
+      status: 'transcribed',
+    }).success).toBe(true)
+    expect(voiceNotePatchSchema.safeParse({}).success).toBe(false)
+    expect(voiceCollectionCreateSchema.safeParse({
+      title: '心理学主题组合',
+      note_ids: [1, 3, 5],
+    }).success).toBe(true)
+    expect(voiceCollectionCreateSchema.safeParse({
+      title: 'bad',
+      note_ids: [],
+    }).success).toBe(false)
+  })
+
+  it('validates local asset folder imports', () => {
+    expect(assetFolderImportSchema.safeParse({
+      folderPath: '/Users/wilsonlu/Desktop/materials',
+      source: '本地文件夹',
+      recursive: true,
+      limit: 500,
+    }).success).toBe(true)
+    expect(assetFolderImportSchema.safeParse({
+      folderPath: '',
     }).success).toBe(false)
   })
 })

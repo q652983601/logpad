@@ -7,6 +7,7 @@ import { useState } from 'react'
 const navItems = [
   { icon: '◆', label: '选题看板', href: '/' },
   { icon: '✎', label: '内容工厂', href: '/episodes' },
+  { icon: '◍', label: '口述资料库', href: '/voice' },
   { icon: '▣', label: '包装车间', href: '/packaging' },
   { icon: '▤', label: '素材库', href: '/assets' },
 ]

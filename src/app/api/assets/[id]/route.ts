@@ -71,19 +71,22 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    // Delete file from disk
-    try {
-      const publicDir = path.resolve(process.cwd(), 'public')
-      const relativeAssetPath = asset.path.replace(/^\/+/, '')
-      const filePath = path.resolve(publicDir, relativeAssetPath)
-      const relativePath = path.relative(publicDir, filePath)
-      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-        console.warn('Unsafe asset path detected, skipping file deletion:', asset.path)
-      } else {
-        await unlink(filePath)
+    // Delete uploaded files only. Local-folder indexed assets should remove the
+    // LogPad record without touching Wilson's original filesystem.
+    if (!asset.path.startsWith('local:')) {
+      try {
+        const publicDir = path.resolve(process.cwd(), 'public')
+        const relativeAssetPath = asset.path.replace(/^\/+/, '')
+        const filePath = path.resolve(publicDir, relativeAssetPath)
+        const relativePath = path.relative(publicDir, filePath)
+        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+          console.warn('Unsafe asset path detected, skipping file deletion:', asset.path)
+        } else {
+          await unlink(filePath)
+        }
+      } catch (e) {
+        console.warn('Failed to delete file:', e)
       }
-    } catch (e) {
-      console.warn('Failed to delete file:', e)
     }
 
     deleteAsset(id)

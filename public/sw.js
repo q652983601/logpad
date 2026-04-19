@@ -1,4 +1,4 @@
-const CACHE_NAME = 'logpad-v0.3.8';
+const CACHE_NAME = 'logpad-v0.4.0';
 const STATIC_ASSETS = [
   '/icon.svg',
   '/manifest.json',

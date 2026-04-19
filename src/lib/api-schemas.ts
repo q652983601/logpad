@@ -144,6 +144,38 @@ export const metricPatchSchema = z.object({
   message: 'At least one field is required',
 })
 
+export const voiceNotePatchSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  transcript: z.string().max(60000).optional(),
+  summary: z.string().max(3000).optional(),
+  key_points: z.array(z.string().max(500)).max(30).optional(),
+  tags: z.string().max(500).optional(),
+  status: z.enum(['uploaded', 'transcribed', 'summarized', 'archived']).optional(),
+}).strict().refine(value => Object.keys(value).length > 0, {
+  message: 'At least one field is required',
+})
+
+export const voiceTranscribeSchema = z.object({
+  transcript: z.string().max(60000).optional(),
+}).strict()
+
+export const voiceCollectionCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  note_ids: z.array(z.number().int().positive()).min(1).max(30),
+}).strict()
+
+export const voiceCollectionDiscussSchema = z.object({
+  provider: agentProviderSchema.optional(),
+}).strict()
+
+export const assetFolderImportSchema = z.object({
+  folderPath: z.string().min(1).max(1200),
+  source: z.string().min(1).max(60).default('本地文件夹'),
+  episode_id: runId.nullish(),
+  recursive: z.boolean().default(true),
+  limit: z.number().int().min(1).max(1000).default(300),
+}).strict()
+
 export const timelineSchema = z.object({
   items: z.array(z.object({
     id: z.string().min(1).max(80),

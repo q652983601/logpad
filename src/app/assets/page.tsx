@@ -24,14 +24,19 @@ interface Episode {
   title: string
 }
 
-const SOURCE_TAGS = ['实拍', 'AI生成', '录屏', '音乐', '其他']
+const SOURCE_TAGS = ['实拍', 'AI生成', '录屏', '音乐', '本地文件夹', '其他']
 
 const SOURCE_COLORS: Record<string, string> = {
   '实拍': 'bg-green/15 text-green',
   'AI生成': 'bg-accent/15 text-accent',
   '录屏': 'bg-orange/15 text-orange',
   '音乐': 'bg-accent-2/15 text-accent-2',
+  '本地文件夹': 'bg-green/15 text-green',
   '其他': 'bg-surface-3 text-text-2',
+}
+
+function assetUrl(asset: Asset): string {
+  return asset.path.startsWith('local:') ? `/api/assets/${asset.id}/file` : asset.path
 }
 
 function formatSize(bytes: number): string {
@@ -164,14 +169,14 @@ function AssetCard({
       <div className="aspect-video bg-surface-2 relative overflow-hidden">
         {isImage && (
           <Image
-            src={asset.path}
+            src={assetUrl(asset)}
             alt={asset.name}
             fill
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         )}
-        {isVideo && <VideoThumbnail src={asset.path} />}
+        {isVideo && <VideoThumbnail src={assetUrl(asset)} />}
         {isAudio && <AudioPlaceholder />}
         {!isImage && !isVideo && !isAudio && (
           <div className="w-full h-full flex items-center justify-center text-text-3 text-sm">未知类型</div>
@@ -213,6 +218,9 @@ export default function AssetsPage() {
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
+  const [folderPath, setFolderPath] = useState('')
+  const [importingFolder, setImportingFolder] = useState(false)
+  const [folderMessage, setFolderMessage] = useState('')
 
   const fetchAssets = useCallback(async () => {
     try {
@@ -311,7 +319,8 @@ export default function AssetsPage() {
   }
 
   async function deleteAssetItem(id: number) {
-    if (!confirm('确定删除该素材？文件将一并删除。')) return
+    const localOnly = detailAsset?.path.startsWith('local:')
+    if (!confirm(localOnly ? '确定从 LogPad 移除该索引？原始本地文件不会删除。' : '确定删除该素材？上传文件将一并删除。')) return
     try {
       const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Delete failed')
@@ -319,6 +328,33 @@ export default function AssetsPage() {
       fetchAssets()
     } catch (err) {
       console.error('Failed to delete asset:', err)
+    }
+  }
+
+  async function importLocalFolder(e: React.FormEvent) {
+    e.preventDefault()
+    if (!folderPath.trim()) return
+    setImportingFolder(true)
+    setFolderMessage('')
+    try {
+      const res = await fetch('/api/assets/import-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath: folderPath.trim(),
+          source: activeSource || '本地文件夹',
+          recursive: true,
+          limit: 500,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || '导入失败')
+      setFolderMessage(`已索引 ${data.imported || 0} 个，跳过重复 ${data.skipped || 0} 个`)
+      await fetchAssets()
+    } catch (err) {
+      setFolderMessage(err instanceof Error ? err.message : '导入失败')
+    } finally {
+      setImportingFolder(false)
     }
   }
 
@@ -330,7 +366,7 @@ export default function AssetsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
             <h2 className="text-2xl font-bold">素材库</h2>
-            <p className="text-text-2 text-sm mt-1">管理图片、视频、音频素材，支持标签分类与选题关联</p>
+            <p className="text-text-2 text-sm mt-1">管理图片、视频、音频素材，支持上传和本地文件夹索引</p>
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -349,6 +385,30 @@ export default function AssetsPage() {
           className="hidden"
           onChange={e => uploadFiles(e.target.files)}
         />
+
+        {/* Search & Filters */}
+        <form onSubmit={importLocalFolder} className="mb-6 rounded-xl border border-border bg-surface p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs uppercase tracking-wider text-text-3">本地文件夹索引</label>
+              <input
+                value={folderPath}
+                onChange={e => setFolderPath(e.target.value)}
+                placeholder="/Users/wilsonlu/Desktop/素材/sony-50mm"
+                className="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-text placeholder:text-text-3 focus:border-accent focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-text-3">只登记本地路径，不复制大文件；删除索引不会删除原始文件。</p>
+            </div>
+            <button
+              type="submit"
+              disabled={importingFolder || !folderPath.trim()}
+              className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              {importingFolder ? '索引中...' : '索引文件夹'}
+            </button>
+          </div>
+          {folderMessage && <p className="mt-3 text-xs text-text-2">{folderMessage}</p>}
+        </form>
 
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -446,7 +506,7 @@ export default function AssetsPage() {
             <div className="aspect-video bg-surface-2 rounded-xl overflow-hidden mb-6 flex items-center justify-center relative">
               {detailAsset.type === 'image' && (
                 <Image
-                  src={detailAsset.path}
+                  src={assetUrl(detailAsset)}
                   alt={detailAsset.name}
                   fill
                   sizes="(max-width: 768px) 100vw, 448px"
@@ -454,12 +514,12 @@ export default function AssetsPage() {
                 />
               )}
               {detailAsset.type === 'video' && (
-                <video src={detailAsset.path} controls className="w-full h-full object-contain" />
+                <video src={assetUrl(detailAsset)} controls className="w-full h-full object-contain" />
               )}
               {detailAsset.type === 'audio' && (
                 <div className="flex flex-col items-center gap-3">
                   <AudioPlaceholder />
-                  <audio src={detailAsset.path} controls className="w-full px-4" />
+                  <audio src={assetUrl(detailAsset)} controls className="w-full px-4" />
                 </div>
               )}
               {!['image', 'video', 'audio'].includes(detailAsset.type) && (
@@ -487,6 +547,11 @@ export default function AssetsPage() {
               <div>
                 <label className="text-xs text-text-3 uppercase tracking-wider">上传时间</label>
                 <p className="text-sm text-text mt-1">{formatDate(detailAsset.created_at)}</p>
+              </div>
+
+              <div>
+                <label className="text-xs text-text-3 uppercase tracking-wider">路径</label>
+                <p className="text-xs text-text-2 mt-1 break-all">{detailAsset.path.startsWith('local:') ? detailAsset.path.slice('local:'.length) : detailAsset.path}</p>
               </div>
 
               <div>
@@ -526,7 +591,7 @@ export default function AssetsPage() {
 
               <div className="pt-4 border-t border-border flex gap-3">
                 <a
-                  href={detailAsset.path}
+                  href={assetUrl(detailAsset)}
                   download={detailAsset.name}
                   className="flex-1 text-center px-4 py-2 bg-surface-2 border border-border rounded-lg text-sm text-text hover:bg-surface-3 transition-colors"
                 >

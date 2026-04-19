@@ -53,6 +53,7 @@ export default function CommandPalette() {
     const base: CommandItem[] = [
       { id: 'home', label: '打开今日驾驶舱', hint: '看今天先推进什么', group: '导航', run: () => go('/') },
       { id: 'episodes', label: '打开内容工厂', hint: '搜索选题和下一步动作', group: '导航', run: () => go('/episodes') },
+      { id: 'voice', label: '打开口述资料库', hint: '上传录音、组合观点、转成选题', group: '导航', run: () => go('/voice') },
       { id: 'assets', label: '打开素材库', hint: '上传、关联和检查素材', group: '导航', run: () => go('/assets') },
       { id: 'distribution', label: '打开发布台', hint: '发布计划、封面 brief、发布 checklist', group: '导航', run: () => go('/distribution') },
       { id: 'review', label: '打开数据复盘', hint: '录数据、写学习银行', group: '导航', run: () => go('/review') },

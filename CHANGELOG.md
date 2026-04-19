@@ -8,6 +8,35 @@ This project follows a pragmatic SemVer-style workflow:
 - `MINOR`: user-facing product capability additions.
 - `PATCH`: bug fixes, safety improvements, documentation, validation, and small UX polish.
 
+## [0.4.0] - 2026-04-19
+
+### Added
+
+- Added `/voice` Voice Inbox for audio/text idea capture, note summaries, note selection, collection creation, local Agent discussion, and converting a collection into an episode.
+- Added `voice_notes` and `voice_collections` SQLite tables.
+- Added `/api/voice-notes`, `/api/voice-notes/[id]`, `/api/voice-notes/[id]/transcribe`, `/api/voice-collections`, and `/api/voice-collections/[id]/discuss`.
+- Added optional local transcription bridge via `OPENAI_API_KEY` and the local transcribe CLI.
+- Added local folder indexing for assets via `/api/assets/import-folder`.
+- Added `/api/assets/[id]/file` so locally indexed assets can be previewed or opened through LogPad.
+- Added `VOICE_INBOX_BLUEPRINT.md`.
+- Added `ASSET_LIBRARY_BLUEPRINT.md`.
+
+### Changed
+
+- Added 口述资料库 to the sidebar and command palette.
+- Changed asset deletion behavior so locally indexed assets remove only the LogPad record and never delete Wilson's original local file.
+- Changed local asset preview to support Range streaming for smoother video/audio thumbnails, playback, and seeking.
+- Bumped the service worker cache name to `logpad-v0.4.0`.
+
+### Verification
+
+- `npm test`: passed, 6 files, 25 tests.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- `npm audit`: passed, 0 vulnerabilities.
+- Smoke: `/`, `/voice`, `/assets`, `/api/voice-notes`, local folder indexing, local asset file serving, and Range requests passed; `/voice` and `/assets` loaded in Playwright with console errors 0.
+
 ## [0.3.8] - 2026-04-19
 
 ### Added

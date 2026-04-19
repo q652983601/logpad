@@ -108,6 +108,40 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_metrics_platform ON metrics(platform);
     CREATE INDEX IF NOT EXISTS idx_learnings_episode ON learnings(episode_id);
     CREATE INDEX IF NOT EXISTS idx_learnings_tag ON learnings(tag);
+
+    CREATE TABLE IF NOT EXISTS voice_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      audio_path TEXT,
+      audio_name TEXT,
+      mime_type TEXT,
+      size INTEGER DEFAULT 0,
+      transcript TEXT DEFAULT '',
+      summary TEXT DEFAULT '',
+      key_points TEXT DEFAULT '[]',
+      tags TEXT DEFAULT '',
+      status TEXT DEFAULT 'uploaded',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS voice_collections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      note_ids TEXT DEFAULT '[]',
+      theme TEXT DEFAULT '',
+      audience_pain TEXT DEFAULT '',
+      theory_support TEXT DEFAULT '',
+      content_angle TEXT DEFAULT '',
+      draft_outline TEXT DEFAULT '',
+      agent_brief TEXT DEFAULT '',
+      status TEXT DEFAULT 'draft',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_voice_notes_created ON voice_notes(created_at);
+    CREATE INDEX IF NOT EXISTS idx_voice_collections_created ON voice_collections(created_at);
   `)
 }
 
@@ -135,6 +169,43 @@ const MIGRATIONS: Migration[] = [
     sql: `
       ALTER TABLE episodes ADD COLUMN description TEXT;
       ALTER TABLE episodes ADD COLUMN target_platforms TEXT;
+    `,
+  },
+  {
+    id: 3,
+    name: 'add_voice_inbox',
+    sql: `
+      CREATE TABLE IF NOT EXISTS voice_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        audio_path TEXT,
+        audio_name TEXT,
+        mime_type TEXT,
+        size INTEGER DEFAULT 0,
+        transcript TEXT DEFAULT '',
+        summary TEXT DEFAULT '',
+        key_points TEXT DEFAULT '[]',
+        tags TEXT DEFAULT '',
+        status TEXT DEFAULT 'uploaded',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS voice_collections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        note_ids TEXT DEFAULT '[]',
+        theme TEXT DEFAULT '',
+        audience_pain TEXT DEFAULT '',
+        theory_support TEXT DEFAULT '',
+        content_angle TEXT DEFAULT '',
+        draft_outline TEXT DEFAULT '',
+        agent_brief TEXT DEFAULT '',
+        status TEXT DEFAULT 'draft',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_voice_notes_created ON voice_notes(created_at);
+      CREATE INDEX IF NOT EXISTS idx_voice_collections_created ON voice_collections(created_at);
     `,
   },
 ]
@@ -296,6 +367,11 @@ export function getAsset(id: number): Asset | undefined {
   return db.prepare('SELECT * FROM assets WHERE id = ?').get(id) as Asset | undefined
 }
 
+export function getAssetByPath(assetPath: string): Asset | undefined {
+  const db = getDb()
+  return db.prepare('SELECT * FROM assets WHERE path = ?').get(assetPath) as Asset | undefined
+}
+
 export function createAsset(asset: Omit<Asset, 'id' | 'created_at'>): number {
   const db = getDb()
   const result = db.prepare(`
@@ -344,6 +420,149 @@ export function updateAsset(id: number, updates: Partial<Pick<Asset, 'episode_id
 export function deleteAsset(id: number): void {
   const db = getDb()
   db.prepare('DELETE FROM assets WHERE id = ?').run(id)
+}
+
+// ─── Voice Notes ───────────────────────────────────────────────────────────
+
+export interface VoiceNote {
+  id: number
+  title: string
+  audio_path: string | null
+  audio_name: string | null
+  mime_type: string | null
+  size: number
+  transcript: string
+  summary: string
+  key_points: string
+  tags: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export interface VoiceCollection {
+  id: number
+  title: string
+  note_ids: string
+  theme: string
+  audience_pain: string
+  theory_support: string
+  content_angle: string
+  draft_outline: string
+  agent_brief: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export function listVoiceNotes(filters?: { search?: string; limit?: number; offset?: number }): VoiceNote[] {
+  const db = getDb()
+  const params: (string | number)[] = []
+  let where = ''
+  if (filters?.search) {
+    where = 'WHERE title LIKE ? OR transcript LIKE ? OR summary LIKE ?'
+    const q = `%${filters.search}%`
+    params.push(q, q, q)
+  }
+  const limit = filters?.limit
+  const offset = filters?.offset ?? 0
+  if (limit) {
+    return db.prepare(`SELECT * FROM voice_notes ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset) as VoiceNote[]
+  }
+  return db.prepare(`SELECT * FROM voice_notes ${where} ORDER BY created_at DESC`).all(...params) as VoiceNote[]
+}
+
+export function getVoiceNote(id: number): VoiceNote | undefined {
+  const db = getDb()
+  return db.prepare('SELECT * FROM voice_notes WHERE id = ?').get(id) as VoiceNote | undefined
+}
+
+export function createVoiceNote(note: Omit<VoiceNote, 'id' | 'created_at' | 'updated_at'>): number {
+  const db = getDb()
+  const result = db.prepare(`
+    INSERT INTO voice_notes (title, audio_path, audio_name, mime_type, size, transcript, summary, key_points, tags, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    note.title,
+    note.audio_path ?? null,
+    note.audio_name ?? null,
+    note.mime_type ?? null,
+    note.size ?? 0,
+    note.transcript ?? '',
+    note.summary ?? '',
+    note.key_points ?? '[]',
+    note.tags ?? '',
+    note.status ?? 'uploaded'
+  )
+  return Number(result.lastInsertRowid)
+}
+
+export function updateVoiceNote(id: number, updates: Partial<Omit<VoiceNote, 'id' | 'created_at' | 'updated_at'>>): void {
+  const db = getDb()
+  const allowed = ['title', 'audio_path', 'audio_name', 'mime_type', 'size', 'transcript', 'summary', 'key_points', 'tags', 'status'] as const
+  const sets: string[] = []
+  const values: (string | number | null)[] = []
+  for (const key of allowed) {
+    if (key in updates) {
+      sets.push(`${key} = ?`)
+      values.push(((updates as Record<string, unknown>)[key] ?? null) as string | number | null)
+    }
+  }
+  if (sets.length === 0) return
+  sets.push('updated_at = CURRENT_TIMESTAMP')
+  values.push(id)
+  db.prepare(`UPDATE voice_notes SET ${sets.join(', ')} WHERE id = ?`).run(...values)
+}
+
+export function deleteVoiceNote(id: number): void {
+  const db = getDb()
+  db.prepare('DELETE FROM voice_notes WHERE id = ?').run(id)
+}
+
+export function listVoiceCollections(): VoiceCollection[] {
+  const db = getDb()
+  return db.prepare('SELECT * FROM voice_collections ORDER BY updated_at DESC, created_at DESC').all() as VoiceCollection[]
+}
+
+export function getVoiceCollection(id: number): VoiceCollection | undefined {
+  const db = getDb()
+  return db.prepare('SELECT * FROM voice_collections WHERE id = ?').get(id) as VoiceCollection | undefined
+}
+
+export function createVoiceCollection(collection: Omit<VoiceCollection, 'id' | 'created_at' | 'updated_at'>): number {
+  const db = getDb()
+  const result = db.prepare(`
+    INSERT INTO voice_collections (title, note_ids, theme, audience_pain, theory_support, content_angle, draft_outline, agent_brief, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    collection.title,
+    collection.note_ids ?? '[]',
+    collection.theme ?? '',
+    collection.audience_pain ?? '',
+    collection.theory_support ?? '',
+    collection.content_angle ?? '',
+    collection.draft_outline ?? '',
+    collection.agent_brief ?? '',
+    collection.status ?? 'draft'
+  )
+  return Number(result.lastInsertRowid)
+}
+
+export function updateVoiceCollection(id: number, updates: Partial<Omit<VoiceCollection, 'id' | 'created_at' | 'updated_at'>>): void {
+  const db = getDb()
+  const allowed = ['title', 'note_ids', 'theme', 'audience_pain', 'theory_support', 'content_angle', 'draft_outline', 'agent_brief', 'status'] as const
+  const sets: string[] = []
+  const values: (string | number | null)[] = []
+  for (const key of allowed) {
+    if (key in updates) {
+      sets.push(`${key} = ?`)
+      values.push(((updates as Record<string, unknown>)[key] ?? null) as string | number | null)
+    }
+  }
+  if (sets.length === 0) return
+  sets.push('updated_at = CURRENT_TIMESTAMP')
+  values.push(id)
+  db.prepare(`UPDATE voice_collections SET ${sets.join(', ')} WHERE id = ?`).run(...values)
 }
 
 // ─── Metrics ───────────────────────────────────────────────────────────────
