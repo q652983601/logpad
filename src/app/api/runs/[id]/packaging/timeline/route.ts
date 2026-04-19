@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { validateRunId } from '@/lib/validation'
+import { formatZodError, timelineSchema } from '@/lib/api-schemas'
 
 const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT || '/Users/wilsonlu/Desktop/Ai/media/media-codex'
 const RUNS_DIR = path.resolve(MEDIA_CODEX_ROOT, 'runs')
+
+type RouteContext = { params: Promise<{ id: string }> }
 
 function errorResponse(error: string, details?: string, status = 500) {
   return NextResponse.json({ error, details }, { status })
@@ -12,10 +15,10 @@ function errorResponse(error: string, details?: string, status = 500) {
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
     }
@@ -37,10 +40,10 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
     }
@@ -52,11 +55,16 @@ export async function PUT(
       return errorResponse('Invalid JSON body', undefined, 400)
     }
 
+    const parsed = timelineSchema.safeParse(body)
+    if (!parsed.success) {
+      return errorResponse('Invalid timeline body', formatZodError(parsed.error), 400)
+    }
+
     const pkgDir = path.join(RUNS_DIR, id, '06-packaging')
     if (!fs.existsSync(pkgDir)) {
       fs.mkdirSync(pkgDir, { recursive: true })
     }
-    fs.writeFileSync(path.join(pkgDir, 'timeline.json'), JSON.stringify(body, null, 2))
+    fs.writeFileSync(path.join(pkgDir, 'timeline.json'), JSON.stringify(parsed.data, null, 2))
     return NextResponse.json({ success: true })
   } catch (err) {
     return errorResponse('Failed to write timeline', err instanceof Error ? err.message : undefined, 500)

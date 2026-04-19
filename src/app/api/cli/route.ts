@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
+import { cliRequestSchema, formatZodError, type CLIRequest } from '@/lib/api-schemas'
+import { toCliStage } from '@/lib/pipeline-status'
 
 const execFileAsync = promisify(execFile)
 
@@ -10,34 +12,61 @@ const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
   : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
 const PIPELINE_SCRIPT = path.join(MEDIA_CODEX_ROOT, 'scripts', 'media_pipeline.py')
 
-interface CLIRequest {
-  command: 'init' | 'validate' | 'status' | 'advance' | 'make-pack'
-  args?: string[]
-  runId?: string
+function buildPipelineArgs(body: CLIRequest): string[] {
+  const args: string[] = [body.command]
+
+  switch (body.command) {
+    case 'init':
+      args.push('--title', body.title || '')
+      if (body.episodeId) args.push('--episode-id', body.episodeId)
+      if (body.platforms?.length) args.push('--platforms', body.platforms.join(','))
+      if (body.owner) args.push('--owner', body.owner)
+      if (body.force) args.push('--force')
+      break
+    case 'validate':
+      args.push('--run', body.runId || '')
+      if (body.upto) args.push('--upto', toCliStage(body.upto))
+      break
+    case 'status':
+    case 'make-pack':
+      args.push('--run', body.runId || '')
+      break
+    case 'advance':
+      args.push('--run', body.runId || '', '--to', toCliStage(body.to || 'signal'))
+      if (body.note) args.push('--note', body.note)
+      if (body.force) args.push('--force')
+      break
+    case 'make-remotion-props':
+      args.push('--run', body.runId || '')
+      if (body.noPackageUpdate) args.push('--no-package-update')
+      break
+    case 'remotion-qc':
+      args.push('--run', body.runId || '')
+      if (body.composition) args.push('--composition', body.composition)
+      if (body.frame !== undefined) args.push('--frame', String(body.frame))
+      if (body.scale) args.push('--scale', body.scale)
+      break
+  }
+
+  return args
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as CLIRequest
-
-    if (!body.command) {
-      return NextResponse.json({ error: 'Missing command' }, { status: 400 })
+    const raw = await req.json()
+    const parsed = cliRequestSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
     }
 
-    const validCommands = ['init', 'validate', 'status', 'advance', 'make-pack']
-    if (!validCommands.includes(body.command)) {
-      return NextResponse.json({ error: `Invalid command: ${body.command}` }, { status: 400 })
-    }
-
-    const args: string[] = [body.command]
-    if (body.runId) {
-      args.push('--run', body.runId)
-    }
-    if (body.args) args.push(...body.args)
+    const body = parsed.data
+    const args = buildPipelineArgs(body)
+    const timeout = body.command === 'remotion-qc' ? 120000 : 30000
 
     const { stdout, stderr } = await execFileAsync('python3', [PIPELINE_SCRIPT, ...args], {
       cwd: MEDIA_CODEX_ROOT,
-      timeout: 30000,
+      timeout,
+      maxBuffer: 1024 * 1024,
     })
 
     return NextResponse.json({

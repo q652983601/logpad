@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { getAsset, updateAsset, deleteAsset, listEpisodes } from '@/lib/db'
 import { unlink } from 'fs/promises'
 import path from 'path'
+import { validateRunId } from '@/lib/validation'
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+type RouteContext = { params: Promise<{ id: string }> }
+
+export async function GET(request: Request, { params }: RouteContext) {
   try {
-    const id = Number(params.id)
+    const { id: rawId } = await params
+    const id = Number(rawId)
     if (Number.isNaN(id)) {
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
@@ -25,9 +29,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const id = Number(params.id)
+    const { id: rawId } = await params
+    const id = Number(rawId)
     if (Number.isNaN(id)) {
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
@@ -35,9 +40,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const body = await request.json()
     const { source, episode_id, name, status } = body
 
+    if (episode_id !== undefined && episode_id !== null && episode_id !== '' && !validateRunId(String(episode_id))) {
+      return NextResponse.json({ error: 'Invalid episode_id' }, { status: 400 })
+    }
+
     updateAsset(id, {
       source,
-      episode_id: episode_id === undefined ? undefined : episode_id,
+      episode_id: episode_id === undefined ? undefined : episode_id || null,
       name,
       status,
     })
@@ -49,9 +58,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   try {
-    const id = Number(params.id)
+    const { id: rawId } = await params
+    const id = Number(rawId)
     if (Number.isNaN(id)) {
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
@@ -63,8 +73,9 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     // Delete file from disk
     try {
-      const filePath = path.resolve(process.cwd(), 'public', asset.path)
       const publicDir = path.resolve(process.cwd(), 'public')
+      const relativeAssetPath = asset.path.replace(/^\/+/, '')
+      const filePath = path.resolve(publicDir, relativeAssetPath)
       const relativePath = path.relative(publicDir, filePath)
       if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         console.warn('Unsafe asset path detected, skipping file deletion:', asset.path)

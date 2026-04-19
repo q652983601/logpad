@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import { countCompletedStages, type PipelineStageKey } from '@/lib/pipeline-status'
 
 interface EpisodeDetail {
   id: string
@@ -10,6 +12,8 @@ interface EpisodeDetail {
   status: string
   dbStatus: string
   createdAt: string
+  description?: string
+  targetPlatforms?: string[]
   stages: Record<string, { exists: boolean }>
   scores?: {
     curiosity?: number
@@ -29,7 +33,7 @@ export default function EpisodePage() {
   const [cliResult, setCliResult] = useState<{ command: string; stdout: string; stderr: string } | null>(null)
   const [cliError, setCliError] = useState('')
 
-  async function loadEpisode() {
+  const loadEpisode = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -42,13 +46,13 @@ export default function EpisodePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     loadEpisode()
-  }, [id])
+  }, [loadEpisode])
 
-  async function runCli(command: string, extraArgs?: string[]) {
+  async function runCli(command: string, payload: Record<string, unknown> = {}) {
     setCliLoading(command)
     setCliError('')
     setCliResult(null)
@@ -56,7 +60,7 @@ export default function EpisodePage() {
       const res = await fetch('/api/cli', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command, runId: id, args: extraArgs }),
+        body: JSON.stringify({ command, runId: id, ...payload }),
       })
       const data = await res.json()
       if (!data.success) {
@@ -90,7 +94,7 @@ export default function EpisodePage() {
 
   if (!episode) return <div className="flex items-center justify-center h-screen text-text-2">未找到</div>
 
-  const stageList = [
+  const stageList: Array<{ name: string; key: PipelineStageKey; file: string }> = [
     { name: 'Signal', key: 'signal', file: '01-signal/signal.json' },
     { name: 'Research', key: 'research', file: '02-research/research.json' },
     { name: 'Topic', key: 'topic', file: '03-topic/topic_decision.json' },
@@ -106,7 +110,7 @@ export default function EpisodePage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-auto">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm text-text-3 font-mono">{episode.id}</span>
@@ -115,9 +119,23 @@ export default function EpisodePage() {
             </span>
           </div>
           <h1 className="text-3xl font-bold">{episode.title}</h1>
+          {episode.description && (
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-text-2">
+              {episode.description}
+            </p>
+          )}
+          {episode.targetPlatforms && episode.targetPlatforms.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {episode.targetPlatforms.map(platform => (
+                <span key={platform} className="rounded-lg border border-border bg-surface px-3 py-1 text-xs text-text-2">
+                  {platform}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6 mb-8">
           <div className="bg-surface border border-border rounded-xl p-5">
             <p className="text-sm text-text-3 mb-1">创建时间</p>
             <p className="text-lg font-semibold">{episode.createdAt?.slice(0, 10) || '—'}</p>
@@ -125,7 +143,7 @@ export default function EpisodePage() {
           <div className="bg-surface border border-border rounded-xl p-5">
             <p className="text-sm text-text-3 mb-1">完成节点</p>
             <p className="text-lg font-semibold">
-              {Object.values(episode.stages || {}).filter(s => s.exists).length} / 10
+              {countCompletedStages(episode.stages)} / 10
             </p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-5">
@@ -138,7 +156,7 @@ export default function EpisodePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6 mb-8 lg:grid-cols-2">
           <div className="bg-surface border border-border rounded-xl p-6">
             <h3 className="text-lg font-semibold mb-4">生产节点</h3>
             <div className="space-y-3">
@@ -164,7 +182,7 @@ export default function EpisodePage() {
           <div className="bg-surface border border-border rounded-xl p-6">
             <h3 className="text-lg font-semibold mb-4">快速操作</h3>
             <div className="space-y-3">
-              <a href={`/episodes/${id}/script`} className="block w-full p-4 bg-surface-2 border border-border rounded-lg hover:border-accent/30 transition-colors group">
+              <Link href={`/episodes/${id}/script`} className="block w-full p-4 bg-surface-2 border border-border rounded-lg hover:border-accent/30 transition-colors group">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-text group-hover:text-accent transition-colors">脚本编辑器</p>
@@ -172,8 +190,8 @@ export default function EpisodePage() {
                   </div>
                   <span className="text-accent">→</span>
                 </div>
-              </a>
-              <a href={`/episodes/${id}/record`} className="block w-full p-4 bg-surface-2 border border-border rounded-lg hover:border-accent/30 transition-colors group">
+              </Link>
+              <Link href={`/episodes/${id}/record`} className="block w-full p-4 bg-surface-2 border border-border rounded-lg hover:border-accent/30 transition-colors group">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-text group-hover:text-accent transition-colors">口播录制</p>
@@ -181,7 +199,7 @@ export default function EpisodePage() {
                   </div>
                   <span className="text-accent">→</span>
                 </div>
-              </a>
+              </Link>
             </div>
 
             <div className="mt-6 pt-6 border-t border-border">
@@ -205,8 +223,7 @@ export default function EpisodePage() {
                   onClick={() => {
                     // Find the next incomplete stage
                     const nextStage = stageList.find(s => !episode?.stages?.[s.key]?.exists)
-                    const args = nextStage ? ['--to', nextStage.key] : undefined
-                    runCli('advance', args)
+                    if (nextStage) runCli('advance', { to: nextStage.key })
                   }}
                   disabled={!!cliLoading}
                   className="px-3 py-2 bg-surface-2 border border-border rounded-lg text-xs text-text-2 hover:text-text hover:border-accent/30 transition-colors disabled:opacity-50"
@@ -219,6 +236,20 @@ export default function EpisodePage() {
                   className="px-3 py-2 bg-surface-2 border border-border rounded-lg text-xs text-text-2 hover:text-text hover:border-accent/30 transition-colors disabled:opacity-50"
                 >
                   {cliLoading === 'make-pack' ? '执行中...' : '📦 生成发布包'}
+                </button>
+                <button
+                  onClick={() => runCli('make-remotion-props')}
+                  disabled={!!cliLoading}
+                  className="px-3 py-2 bg-surface-2 border border-border rounded-lg text-xs text-text-2 hover:text-text hover:border-accent/30 transition-colors disabled:opacity-50"
+                >
+                  {cliLoading === 'make-remotion-props' ? '执行中...' : '🎬 生成 Remotion Props'}
+                </button>
+                <button
+                  onClick={() => runCli('remotion-qc')}
+                  disabled={!!cliLoading}
+                  className="px-3 py-2 bg-surface-2 border border-border rounded-lg text-xs text-text-2 hover:text-text hover:border-accent/30 transition-colors disabled:opacity-50"
+                >
+                  {cliLoading === 'remotion-qc' ? '执行中...' : '🧪 Remotion QC'}
                 </button>
               </div>
 

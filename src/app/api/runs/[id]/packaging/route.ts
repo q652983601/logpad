@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server'
 import { readPackaging } from '@/lib/pipeline'
 import { validateRunId } from '@/lib/validation'
 
+type RouteContext = { params: Promise<{ id: string }> }
+
 function errorResponse(error: string, details?: string, status = 500) {
   return NextResponse.json({ error, details }, { status })
 }
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
     }

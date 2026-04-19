@@ -67,15 +67,19 @@ function diagnose(data: Metrics): DiagnosisIssue[] {
     issues.push({ type: 'success', message: '完播率表现良好', area: '脚本/剪辑' })
   }
 
-  const engagementRate = (data.likes + data.comments + data.shares) / (data.views || 1) * 100
-  if (engagementRate < 3) {
-    issues.push({ type: 'warning', message: '互动率偏低，增加明确的 CTA', area: '脚本' })
-  } else if (engagementRate > 8) {
-    issues.push({ type: 'success', message: '互动率表现优秀', area: '脚本' })
-  }
+  if (data.views <= 0) {
+    issues.push({ type: 'warning', message: '暂无播放量，互动率和转粉率先不参与判断', area: '数据' })
+  } else {
+    const engagementRate = (data.likes + data.comments + data.shares) / data.views * 100
+    if (engagementRate < 3) {
+      issues.push({ type: 'warning', message: '互动率偏低，增加明确的 CTA', area: '脚本' })
+    } else if (engagementRate > 8) {
+      issues.push({ type: 'success', message: '互动率表现优秀', area: '脚本' })
+    }
 
-  if (data.new_followers / (data.views || 1) * 100 < 0.5) {
-    issues.push({ type: 'warning', message: '转粉率偏低，人设感可能不足', area: '人设' })
+    if (data.new_followers / data.views * 100 < 0.5) {
+      issues.push({ type: 'warning', message: '转粉率偏低，人设感可能不足', area: '人设' })
+    }
   }
 
   if (issues.length === 0) {
@@ -89,6 +93,11 @@ function formatNumber(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
   return String(n)
+}
+
+function formatRate(numerator: number, denominator: number): string {
+  if (denominator <= 0) return '暂无数据'
+  return `${(numerator / denominator * 100).toFixed(2)}%`
 }
 
 function BarChart({ data, labelKey, valueKey, color = 'accent', max }: {
@@ -182,7 +191,7 @@ export default function ReviewPage() {
   const [metricForm, setMetricForm] = useState<Partial<Metrics>>({ platform: 'youtube' })
   const [learningForm, setLearningForm] = useState({ episode_id: '', tag: '脚本', content: '' })
 
-  // AI Review
+  // Local Agent review
   const [aiReviewLoading, setAiReviewLoading] = useState<number | null>(null)
   const [aiReviewResult, setAiReviewResult] = useState<Record<number, string>>({})
   const [aiReviewError, setAiReviewError] = useState('')
@@ -282,8 +291,8 @@ export default function ReviewPage() {
     setAiReviewLoading(metric.id)
     setAiReviewError('')
 
-    const engagementRate = ((metric.likes + metric.comments + metric.shares) / (metric.views || 1) * 100).toFixed(2)
-    const followRate = (metric.new_followers / (metric.views || 1) * 100).toFixed(2)
+    const engagementRate = formatRate(metric.likes + metric.comments + metric.shares, metric.views)
+    const followRate = formatRate(metric.new_followers, metric.views)
 
     const content = `内容: ${episodes.find(e => e.id === metric.episode_id)?.title || metric.episode_id}
 平台: ${metric.platform}
@@ -296,8 +305,8 @@ CTR: ${metric.ctr}%
 分享: ${metric.shares}
 收藏: ${metric.saves}
 新增粉丝: ${metric.new_followers}
-互动率: ${engagementRate}%
-转粉率: ${followRate}%`
+互动率: ${engagementRate}
+转粉率: ${followRate}`
 
     try {
       const res = await fetch('/api/ai', {
@@ -306,7 +315,7 @@ CTR: ${metric.ctr}%
         body: JSON.stringify({ action: 'generate_review', content }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'AI 请求失败')
+      if (!res.ok) throw new Error(data.error || 'Agent 请求失败')
 
       setAiReviewResult(prev => ({ ...prev, [metric.id]: data.result }))
     } catch (err: unknown) {
@@ -326,7 +335,7 @@ CTR: ${metric.ctr}%
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
             <h2 className="text-2xl font-bold">数据复盘</h2>
-            <p className="text-text-2 text-sm mt-1">趋势图表、AI 诊断、学习银行</p>
+            <p className="text-text-2 text-sm mt-1">趋势图表、本地 Agent 诊断、学习银行</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -519,7 +528,7 @@ CTR: ${metric.ctr}%
           {[
             { key: 'overview', label: '总览' },
             { key: 'charts', label: '趋势图表' },
-            { key: 'diagnosis', label: 'AI 诊断' },
+            { key: 'diagnosis', label: 'Agent 诊断' },
             { key: 'learnings', label: '学习银行' },
           ].map(tab => (
             <button
@@ -650,7 +659,7 @@ CTR: ${metric.ctr}%
                   <LineChart
                     data={[...filteredMetrics].reverse().map(m => ({
                       label: episodes.find(e => e.id === m.episode_id)?.title?.slice(0, 8) || m.episode_id.slice(0, 6),
-                      value: ((m.likes + m.comments + m.shares) / (m.views || 1) * 100),
+                      value: m.views > 0 ? ((m.likes + m.comments + m.shares) / m.views * 100) : 0,
                     }))}
                     valueKey="value"
                   />
@@ -708,7 +717,7 @@ CTR: ${metric.ctr}%
                     {aiReviewResult[m.id] ? (
                       <div className="mt-3 p-4 bg-surface-2 rounded-lg border border-border">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold">AI 复盘报告</span>
+                          <span className="text-sm font-semibold">本地 Agent 复盘报告</span>
                           <button
                             onClick={() => setAiReviewResult(prev => { const n = { ...prev }; delete n[m.id]; return n })}
                             className="text-xs text-text-3 hover:text-text"
@@ -734,7 +743,7 @@ CTR: ${metric.ctr}%
                         disabled={aiReviewLoading === m.id}
                         className="mt-2 text-xs px-3 py-1.5 bg-accent/15 text-accent rounded hover:bg-accent/25 disabled:opacity-50"
                       >
-                        {aiReviewLoading === m.id ? 'AI 分析中...' : '✨ 生成 AI 复盘报告'}
+                        {aiReviewLoading === m.id ? 'Agent 分析中...' : '生成本地 Agent 复盘报告'}
                       </button>
                     )}
                   </div>

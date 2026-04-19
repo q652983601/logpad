@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { aiRequestSchema, formatZodError, type AIRequest } from '@/lib/api-schemas'
+import { runLocalAgent } from '@/lib/local-agent'
+import { checkRateLimit } from '@/lib/rate-limit'
 
-interface AIPromptRequest {
-  action: 'rewrite_colloquial' | 'generate_titles' | 'generate_hooks' | 'generate_remotion' | 'rewrite_douyin' | 'generate_review'
-  content: string
-  context?: string
-}
-
-function buildPrompt(req: AIPromptRequest): string {
+function buildPrompt(req: AIRequest): string {
   switch (req.action) {
     case 'rewrite_colloquial':
       return `请将以下口播脚本改写成更口语化、更自然的表达。要求：
@@ -87,94 +84,76 @@ ${req.content}
 
 语气要专业但易懂，像资深内容运营给创作者的建议。请用 Markdown 格式输出。`
 
-    default:
-      return req.content
+    case 'generate_thumbnail_brief':
+      return `请为以下视频发布内容生成 3 个封面方案。要求：
+1. 每个方案分别覆盖：悬念型、数字型、对比型
+2. 每个方案要包含：style、promise、layout、cover_text、asset_prompt
+3. cover_text 控制在 8 个汉字以内
+4. layout 要说明人物、文字、对比元素如何摆放
+5. asset_prompt 用英文写，便于后续交给图像或设计 agent
+6. 不要夸张虚假承诺，必须贴合内容
+
+内容：
+${req.content}
+
+请只返回 JSON：
+{"variants":[{"style":"悬念型","promise":"观众点击后得到什么","layout":"版面说明","cover_text":"封面字","asset_prompt":"English visual prompt"}]}`
   }
 }
 
-async function callClaude(prompt: string): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY not configured')
-  }
+function wrapForAgent(req: AIRequest, prompt: string): string {
+  const context = req.context ? `\n\n上下文：\n${req.context}` : ''
+  return `你是 LogPad 的本地 Agent worker。产品层不直连模型 API，你现在通过本机 runtime 执行一次结构化生成任务。
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+约束：
+- 只处理下面这一次任务，不要修改文件，不要运行命令。
+- 如果要求 JSON，只返回可解析 JSON，不要包 Markdown 代码块。
+- 如果要求纯文本，只返回结果本身。
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Claude API error: ${res.status} ${err}`)
-  }
+任务类型：${req.action}${context}
 
-  const data = await res.json()
-  return data.content?.[0]?.text || ''
+${prompt}`
 }
 
-async function callOpenAI(prompt: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY not configured')
-  }
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.8,
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`OpenAI API error: ${res.status} ${err}`)
-  }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
-}
-
-async function callAI(prompt: string): Promise<string> {
-  // 优先使用 Claude，其次 OpenAI
-  if (process.env.ANTHROPIC_API_KEY) {
-    return callClaude(prompt)
-  }
-  if (process.env.OPENAI_API_KEY) {
-    return callOpenAI(prompt)
-  }
-  throw new Error('No AI API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env.local')
+function getClientKey(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'local'
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as AIPromptRequest
-
-    if (!body.action || !body.content) {
-      return NextResponse.json({ error: 'Missing action or content' }, { status: 400 })
+    const raw = await req.json()
+    const parsed = aiRequestSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
     }
 
-    const prompt = buildPrompt(body)
-    const result = await callAI(prompt)
+    const limit = Number(process.env.LOGPAD_AGENT_RATE_LIMIT_PER_MINUTE || 60)
+    const rate = checkRateLimit(`ai:${getClientKey(req)}`, limit, 60_000)
+    if (!rate.ok) {
+      return NextResponse.json(
+        { error: `本地 Agent 请求过快，请 ${rate.retryAfter} 秒后再试` },
+        { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } }
+      )
+    }
 
-    return NextResponse.json({ result })
+    const body = parsed.data
+    const prompt = wrapForAgent(body, buildPrompt(body))
+    const response = await runLocalAgent({
+      action: body.action,
+      provider: body.provider,
+      prompt,
+    })
+
+    return NextResponse.json({
+      result: response.result,
+      provider: response.provider,
+      routed: true,
+    })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    console.error('AI API error:', message)
+    console.error('Local agent API error:', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

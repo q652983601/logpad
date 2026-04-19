@@ -1,12 +1,29 @@
 import Database from 'better-sqlite3'
+import fs from 'fs'
 import path from 'path'
 
-const DB_PATH = path.join(process.cwd(), 'data', 'logpad.db')
+export function resolveDbPath(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): string {
+  const configured = env.LOGPAD_DB_PATH || env.DATABASE_URL
+  if (!configured) return path.join(cwd, 'data', 'logpad.db')
+
+  if (configured.startsWith('file:')) {
+    return new URL(configured).pathname
+  }
+
+  if (configured.startsWith('sqlite://')) {
+    return configured.slice('sqlite://'.length)
+  }
+
+  return path.resolve(configured)
+}
+
+const DB_PATH = resolveDbPath()
 
 let db: Database.Database | null = null
 
 export function getDb(): Database.Database {
   if (!db) {
+    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
     db = new Database(DB_PATH)
     db.pragma('journal_mode = WAL')
     initSchema(db)
@@ -224,7 +241,7 @@ export interface Asset {
   created_at: string
 }
 
-export function listAssets(filters?: { source?: string; episode_id?: string; search?: string }): Asset[] {
+export function listAssets(filters?: { source?: string; episode_id?: string; search?: string; limit?: number; offset?: number }): Asset[] {
   const db = getDb()
   const conditions: string[] = []
   const params: (string | number)[] = []
@@ -243,7 +260,35 @@ export function listAssets(filters?: { source?: string; episode_id?: string; sea
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const limit = filters?.limit
+  const offset = filters?.offset ?? 0
+  if (limit) {
+    return db.prepare(`SELECT * FROM assets ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset) as Asset[]
+  }
   return db.prepare(`SELECT * FROM assets ${where} ORDER BY created_at DESC`).all(...params) as Asset[]
+}
+
+export function countAssets(filters?: { source?: string; episode_id?: string; search?: string }): number {
+  const db = getDb()
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+
+  if (filters?.source) {
+    conditions.push('source = ?')
+    params.push(filters.source)
+  }
+  if (filters?.episode_id) {
+    conditions.push('episode_id = ?')
+    params.push(filters.episode_id)
+  }
+  if (filters?.search) {
+    conditions.push('name LIKE ?')
+    params.push(`%${filters.search}%`)
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const row = db.prepare(`SELECT COUNT(*) as count FROM assets ${where}`).get(...params) as { count: number }
+  return row.count
 }
 
 export function getAsset(id: number): Asset | undefined {

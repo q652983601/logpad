@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Image from 'next/image'
 import Sidebar from '@/components/Sidebar'
 import ErrorBanner from '@/components/ErrorBanner'
 
@@ -46,10 +47,29 @@ function formatDate(iso: string): string {
 }
 
 function VideoThumbnail({ src }: { src: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setVisible(true)
+        observer.disconnect()
+      }
+    }, { rootMargin: '200px' })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!visible) return
+
     const video = document.createElement('video')
     video.src = src
     video.crossOrigin = 'anonymous'
@@ -79,11 +99,13 @@ function VideoThumbnail({ src }: { src: string }) {
       video.removeEventListener('loadedmetadata', onLoaded)
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('error', onError)
+      video.removeAttribute('src')
+      video.load()
     }
-  }, [src])
+  }, [src, visible])
 
   return (
-    <div className="w-full h-full bg-surface-3 flex items-center justify-center relative overflow-hidden">
+    <div ref={containerRef} className="w-full h-full bg-surface-3 flex items-center justify-center relative overflow-hidden">
       <canvas
         ref={canvasRef}
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'}`}
@@ -97,12 +119,13 @@ function VideoThumbnail({ src }: { src: string }) {
   )
 }
 
+const AUDIO_BAR_HEIGHTS = [9, 18, 12, 26, 16, 22, 11, 28, 15, 20, 13, 24]
+
 function AudioPlaceholder() {
   return (
     <div className="w-full h-full bg-surface-3 flex flex-col items-center justify-center gap-2">
       <svg width="48" height="32" viewBox="0 0 48 32" fill="none" className="opacity-40">
-        {Array.from({ length: 12 }).map((_, i) => {
-          const h = 8 + Math.random() * 20
+        {AUDIO_BAR_HEIGHTS.map((h, i) => {
           return (
             <rect
               key={i}
@@ -140,11 +163,12 @@ function AssetCard({
     >
       <div className="aspect-video bg-surface-2 relative overflow-hidden">
         {isImage && (
-          <img
+          <Image
             src={asset.path}
             alt={asset.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
+            fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         )}
         {isVideo && <VideoThumbnail src={asset.path} />}
@@ -195,21 +219,22 @@ export default function AssetsPage() {
       const params = new URLSearchParams()
       if (activeSource) params.set('source', activeSource)
       if (search) params.set('search', search)
+      params.set('limit', '200')
       const res = await fetch(`/api/assets?${params.toString()}`)
       const data = await res.json()
 
       // Fetch episodes to map titles
       const epRes = await fetch('/api/runs')
-      const epData = await epRes.json()
+      const epData = await epRes.json() as Episode[]
       const epMap = new Map<string, string>()
-      epData.forEach((e: any) => epMap.set(e.id, e.title))
+      epData.forEach(e => epMap.set(e.id, e.title))
 
       const enriched = (data as Asset[]).map(a => ({
         ...a,
         episode_title: a.episode_id ? epMap.get(a.episode_id) || null : null,
       }))
       setAssets(enriched)
-      setEpisodes(epData.map((e: any) => ({ id: e.id, title: e.title })))
+      setEpisodes(epData.map(e => ({ id: e.id, title: e.title })))
     } catch (err) {
       console.error('Failed to fetch assets:', err)
     } finally {
@@ -251,7 +276,7 @@ export default function AssetsPage() {
           const err = await res.json()
           alert(`上传失败: ${err.error || file.name}`)
         }
-      } catch (e) {
+      } catch {
         alert(`上传失败: ${file.name}`)
       }
     }
@@ -404,9 +429,12 @@ export default function AssetsPage() {
           <div
             className="w-full max-w-md bg-surface border-l border-border h-full overflow-auto p-6"
             onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="asset-detail-title"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold">素材详情</h3>
+              <h3 id="asset-detail-title" className="text-lg font-bold">素材详情</h3>
               <button
                 onClick={() => setDetailAsset(null)}
                 className="text-text-3 hover:text-text text-xl leading-none"
@@ -415,9 +443,15 @@ export default function AssetsPage() {
               </button>
             </div>
 
-            <div className="aspect-video bg-surface-2 rounded-xl overflow-hidden mb-6 flex items-center justify-center">
+            <div className="aspect-video bg-surface-2 rounded-xl overflow-hidden mb-6 flex items-center justify-center relative">
               {detailAsset.type === 'image' && (
-                <img src={detailAsset.path} alt={detailAsset.name} className="w-full h-full object-cover" />
+                <Image
+                  src={detailAsset.path}
+                  alt={detailAsset.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 448px"
+                  className="object-cover"
+                />
               )}
               {detailAsset.type === 'video' && (
                 <video src={detailAsset.path} controls className="w-full h-full object-contain" />

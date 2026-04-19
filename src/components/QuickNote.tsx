@@ -91,11 +91,11 @@ export default function QuickNote() {
   }
 
   return (
-    <div className="md:hidden">
+    <div>
       {/* FAB */}
       <button
         onClick={openModal}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-accent text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-accent text-white shadow-lg flex items-center justify-center active:scale-95 hover:scale-105 transition-transform"
         aria-label="灵感速记"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -108,7 +108,7 @@ export default function QuickNote() {
       {notes.length > 0 && (
         <button
           onClick={() => setShowList(true)}
-          className="fixed bottom-20 right-6 z-50 bg-surface-3 text-text text-xs px-3 py-1.5 rounded-full border border-border shadow"
+          className="fixed bottom-20 right-6 z-50 bg-surface-3 text-text text-xs px-3 py-1.5 rounded-full border border-border shadow hover:border-accent/30"
         >
           {notes.length} 条速记
         </button>
@@ -118,8 +118,13 @@ export default function QuickNote() {
       {showModal && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
           <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
-          <div className="relative w-full sm:w-[90%] max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-text mb-3">灵感速记</h3>
+          <div
+            className="relative w-full sm:w-[90%] max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-note-title"
+          >
+            <h3 id="quick-note-title" className="text-lg font-semibold text-text mb-3">灵感速记</h3>
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
@@ -166,9 +171,14 @@ export default function QuickNote() {
       {showList && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowList(false)} />
-          <div className="relative w-full max-w-md bg-surface rounded-t-2xl border border-border shadow-2xl p-4 max-h-[70vh] flex flex-col">
+          <div
+            className="relative w-full max-w-md bg-surface rounded-t-2xl border border-border shadow-2xl p-4 max-h-[70vh] flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-note-list-title"
+          >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-text">灵感速记</h3>
+              <h3 id="quick-note-list-title" className="text-lg font-semibold text-text">灵感速记</h3>
               <button onClick={() => setShowList(false)} className="text-text-3 text-sm px-2 py-1">关闭</button>
             </div>
             {notes.length === 0 ? (

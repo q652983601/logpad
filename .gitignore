@@ -38,3 +38,4 @@ npm-debug.log*
 # Screenshots (dev artifacts)
 screenshot-*.png
 preview-*.png
+.playwright-cli/

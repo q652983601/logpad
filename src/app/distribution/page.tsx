@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import ErrorBanner from '@/components/ErrorBanner'
+import { PIPELINE_STAGE_KEYS, countCompletedStages, isPipelineComplete } from '@/lib/pipeline-status'
+import { cn } from '@/lib/utils'
 
 interface PublishingPlan {
   id: number
@@ -21,6 +23,14 @@ interface Episode {
   title: string
 }
 
+interface ThumbnailVariant {
+  style: string
+  promise: string
+  layout: string
+  cover_text: string
+  asset_prompt: string
+}
+
 const PLATFORMS = [
   { id: 'youtube', name: 'YouTube', color: 'text-red-500', bg: 'bg-red-500/10', fields: ['title', 'description', 'tags', 'thumbnail'] },
   { id: 'douyin', name: '抖音', color: 'text-white', bg: 'bg-white/10', fields: ['title', 'description', 'hashtags'] },
@@ -34,8 +44,6 @@ const STATUS_OPTIONS = [
   { key: 'scheduled', label: '已排期', color: 'text-accent', bg: 'bg-accent/15' },
   { key: 'published', label: '已发布', color: 'text-green', bg: 'bg-green/15' },
 ]
-
-const STAGE_KEYS = ['signal', 'research', 'topic', 'script', 'assets', 'packaging', 'production', 'distribution', 'metrics', 'review']
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -54,10 +62,6 @@ function addDays(d: Date, days: number) {
   const nd = new Date(d)
   nd.setDate(nd.getDate() + days)
   return nd
-}
-
-function cn(...classes: (string | false | undefined)[]) {
-  return classes.filter(Boolean).join(' ')
 }
 
 export default function DistributionPage() {
@@ -88,6 +92,10 @@ export default function DistributionPage() {
   const [editScheduled, setEditScheduled] = useState('')
   const [editStatus, setEditStatus] = useState('')
   const [editLink, setEditLink] = useState('')
+  const [thumbnailLoading, setThumbnailLoading] = useState(false)
+  const [thumbnailError, setThumbnailError] = useState('')
+  const [thumbnailVariants, setThumbnailVariants] = useState<ThumbnailVariant[]>([])
+  const [selectedThumbnailIdx, setSelectedThumbnailIdx] = useState<number | null>(null)
 
   const fetchPlans = useCallback(async () => {
     const res = await fetch('/api/publishing')
@@ -97,8 +105,8 @@ export default function DistributionPage() {
 
   const fetchEpisodes = useCallback(async () => {
     const res = await fetch('/api/runs')
-    const data = await res.json()
-    setEpisodes(data.map((e: any) => ({ id: e.id, title: e.title })))
+    const data = await res.json() as Array<{ id: string; title: string; stages?: Record<string, { exists: boolean }> }>
+    setEpisodes(data.map(e => ({ id: e.id, title: e.title })))
     // Also fetch stages for checklist
     const stages: Record<string, Record<string, { exists: boolean }>> = {}
     for (const e of data) {
@@ -158,7 +166,60 @@ export default function DistributionPage() {
     setEditScheduled(plan.scheduled_at ? plan.scheduled_at.slice(0, 16) : '')
     setEditStatus(plan.status || 'draft')
     setEditLink('')
+    setThumbnailError('')
+    setThumbnailVariants([])
+    setSelectedThumbnailIdx(null)
     setShowEditor(true)
+  }
+
+  async function generateThumbnailBrief(plan: PublishingPlan) {
+    setThumbnailLoading(true)
+    setThumbnailError('')
+    setThumbnailVariants([])
+    try {
+      const content = [
+        `平台：${PLATFORMS.find(p => p.id === plan.platform)?.name || plan.platform}`,
+        `标题：${editTitle || plan.title}`,
+        `描述：${editDescription || plan.description || ''}`,
+        `标签：${editTags || plan.tags || ''}`,
+      ].join('\n')
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate_thumbnail_brief',
+          content,
+          context: '为真人出镜自媒体视频生成封面方案，输出必须方便设计 agent 或图像 agent 接着执行。',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '封面方案生成失败')
+
+      const text = String(data.result || '')
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('Agent 返回内容不是 JSON')
+      const parsed = JSON.parse(jsonMatch[0]) as { variants?: ThumbnailVariant[] }
+      const variants = Array.isArray(parsed.variants) ? parsed.variants : []
+      setThumbnailVariants(variants)
+      setSelectedThumbnailIdx(variants.length > 0 ? 0 : null)
+    } catch (err) {
+      setThumbnailError(err instanceof Error ? err.message : '封面方案生成失败')
+    } finally {
+      setThumbnailLoading(false)
+    }
+  }
+
+  function applyThumbnailVariant(variant: ThumbnailVariant) {
+    const block = [
+      '',
+      '【封面方案】',
+      `风格：${variant.style}`,
+      `封面字：${variant.cover_text}`,
+      `点击承诺：${variant.promise}`,
+      `版式：${variant.layout}`,
+      `素材提示：${variant.asset_prompt}`,
+    ].join('\n')
+    setEditDescription(current => `${current || ''}${block}`)
   }
 
   async function savePlan() {
@@ -181,8 +242,7 @@ export default function DistributionPage() {
   async function markPublished() {
     if (!selectedPlan) return
     const stages = stagesMap[selectedPlan.episode_id] || {}
-    const doneCount = STAGE_KEYS.filter(k => stages[k]?.exists).length
-    if (doneCount !== STAGE_KEYS.length) {
+    if (!isPipelineComplete(stages)) {
       alert('还有未完成的 pipeline 节点，无法发布')
       return
     }
@@ -273,18 +333,18 @@ export default function DistributionPage() {
 
   function renderChecklist(episodeId: string) {
     const stages = stagesMap[episodeId] || {}
-    const doneCount = STAGE_KEYS.filter(k => stages[k]?.exists).length
-    const allDone = doneCount === STAGE_KEYS.length
+    const doneCount = countCompletedStages(stages)
+    const allDone = isPipelineComplete(stages)
     return (
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-text-2">发布 Checklist</span>
           <span className={cn('text-[10px] font-medium', allDone ? 'text-green' : 'text-orange')}>
-            {doneCount}/{STAGE_KEYS.length}
+            {doneCount}/{PIPELINE_STAGE_KEYS.length}
           </span>
         </div>
         <div className="space-y-1.5">
-          {STAGE_KEYS.map(key => {
+          {PIPELINE_STAGE_KEYS.map(key => {
             const done = !!stages[key]?.exists
             return (
               <div key={key} className="flex items-center gap-2">
@@ -400,7 +460,7 @@ export default function DistributionPage() {
         <div className="mb-8">
           {view === 'week' ? (
             <div className="grid grid-cols-7 gap-1 md:gap-3">
-              {['一','二','三','四','五','六','日'].map((d, i) => (
+              {['一','二','三','四','五','六','日'].map(d => (
                 <div key={d} className="text-center text-[10px] text-text-3 font-semibold uppercase tracking-wider">
                   周{d}
                 </div>
@@ -538,9 +598,14 @@ export default function DistributionPage() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-surface border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-auto">
+          <div
+            className="bg-surface border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-plan-title"
+          >
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold">新建发布计划</h3>
+              <h3 id="create-plan-title" className="text-sm font-semibold">新建发布计划</h3>
               <button onClick={() => setShowCreate(false)} className="text-text-3 hover:text-text text-lg">&times;</button>
             </div>
             <div className="p-5 space-y-4">
@@ -614,11 +679,16 @@ export default function DistributionPage() {
       {/* Editor Modal */}
       {showEditor && selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-surface border border-border rounded-xl w-full max-w-4xl max-h-[92vh] overflow-auto">
+          <div
+            className="bg-surface border border-border rounded-xl w-full max-w-4xl max-h-[92vh] overflow-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-plan-title"
+          >
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {getPlatformBadge(selectedPlan.platform)}
-                <h3 className="text-sm font-semibold">{selectedPlan.episode_title || selectedPlan.title}</h3>
+                <h3 id="edit-plan-title" className="text-sm font-semibold">{selectedPlan.episode_title || selectedPlan.title}</h3>
               </div>
               <button onClick={() => setShowEditor(false)} className="text-text-3 hover:text-text text-lg">&times;</button>
             </div>
@@ -684,12 +754,61 @@ export default function DistributionPage() {
                   />
                 </div>
 
-                {selectedPlan.platform === 'youtube' && (
-                  <div>
-                    <label className="block text-xs text-text-3 mb-1.5">缩略图</label>
-                    <div className="w-full h-32 bg-surface-2 border border-dashed border-border rounded-lg flex items-center justify-center text-text-3 text-xs">
-                      缩略图上传占位（可扩展为文件上传）
+                <div className="rounded-lg border border-border bg-surface-2 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-text-3 mb-1">封面方案</p>
+                      <p className="text-sm text-text">生成悬念型、数字型、对比型 3 个方向</p>
                     </div>
+                    <button
+                      onClick={() => generateThumbnailBrief(selectedPlan)}
+                      disabled={thumbnailLoading}
+                      className="rounded-md bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent/90 disabled:opacity-50"
+                    >
+                      {thumbnailLoading ? '生成中...' : '生成封面方案'}
+                    </button>
+                  </div>
+                  {thumbnailError && (
+                    <p className="mt-3 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                      {thumbnailError}
+                    </p>
+                  )}
+                  {thumbnailVariants.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {thumbnailVariants.map((variant, idx) => (
+                        <button
+                          key={`${variant.style}-${idx}`}
+                          type="button"
+                          onClick={() => setSelectedThumbnailIdx(idx)}
+                          className={`block w-full rounded-md border bg-surface p-3 text-left transition-colors ${
+                            selectedThumbnailIdx === idx ? 'border-accent' : 'border-border hover:border-accent/40'
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <span className="text-xs font-semibold text-accent">{variant.style}</span>
+                            <span className="rounded bg-accent/10 px-2 py-0.5 text-xs text-accent">{variant.cover_text}</span>
+                          </div>
+                          <p className="text-xs text-text-2">{variant.promise}</p>
+                          <p className="mt-2 text-xs text-text-3">{variant.layout}</p>
+                          <p className="mt-2 text-[11px] text-text-3 font-mono">{variant.asset_prompt}</p>
+                        </button>
+                      ))}
+                      {selectedThumbnailIdx !== null && thumbnailVariants[selectedThumbnailIdx] && (
+                        <button
+                          type="button"
+                          onClick={() => applyThumbnailVariant(thumbnailVariants[selectedThumbnailIdx])}
+                          className="rounded-md border border-accent/40 px-3 py-2 text-xs font-semibold text-accent hover:bg-accent/10"
+                        >
+                          写入发布说明
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {selectedPlan.platform === 'youtube' && (
+                  <div className="w-full h-32 bg-surface-2 border border-dashed border-border rounded-lg flex items-center justify-center text-text-3 text-xs">
+                    封面文件上传可接下一阶段素材库
                   </div>
                 )}
 
@@ -724,8 +843,7 @@ export default function DistributionPage() {
                   </button>
                   {selectedPlan.status !== 'published' && (() => {
                     const stages = stagesMap[selectedPlan.episode_id] || {}
-                    const doneCount = STAGE_KEYS.filter(k => stages[k]?.exists).length
-                    const allDone = doneCount === STAGE_KEYS.length
+                    const allDone = isPipelineComplete(stages)
                     return allDone ? (
                       <button onClick={markPublished} className="px-4 py-2 bg-green/15 text-green rounded-lg text-sm font-medium hover:bg-green/25">
                         标记为已发布

@@ -18,6 +18,8 @@ export interface RunInfo {
   title: string
   status: string
   createdAt: string
+  description?: string
+  platforms?: string[]
   stages: Record<string, { exists: boolean; data?: unknown }>
 }
 
@@ -33,6 +35,8 @@ export function listRuns(): RunInfo[] {
     let title = dir.name
     let status = 'unknown'
     let createdAt = ''
+    let description = ''
+    let platforms: string[] = []
 
     if (fs.existsSync(episodePath)) {
       try {
@@ -40,6 +44,12 @@ export function listRuns(): RunInfo[] {
         title = ep.title || dir.name
         status = ep.status || 'unknown'
         createdAt = ep.created_at || ''
+        description = ep.description || ''
+        platforms = Array.isArray(ep.platforms)
+          ? ep.platforms
+          : typeof ep.platforms === 'string'
+            ? ep.platforms.split(',').map((item: string) => item.trim()).filter(Boolean)
+            : []
       } catch {}
     }
 
@@ -61,7 +71,7 @@ export function listRuns(): RunInfo[] {
       stages[name] = { exists: fs.existsSync(path.join(runPath, filePath)) }
     }
 
-    return { id: dir.name, title, status, createdAt, stages }
+    return { id: dir.name, title, status, createdAt, description, platforms, stages }
   }).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
@@ -117,7 +127,11 @@ export function runExists(id: string): boolean {
   return fs.existsSync(path.join(RUNS_DIR, id))
 }
 
-export function initRun(id: string, title: string): void {
+export function initRun(
+  id: string,
+  title: string,
+  options: { description?: string; platforms?: string[] } = {}
+): void {
   assertValidRunId(id)
   const runPath = path.join(RUNS_DIR, id)
   if (!fs.existsSync(runPath)) {
@@ -130,6 +144,8 @@ export function initRun(id: string, title: string): void {
       id,
       title,
       status: 'inbox',
+      description: options.description || '',
+      platforms: options.platforms || [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }

@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
 import { getPublishingPlan, updatePublishingPlan, deletePublishingPlan } from '@/lib/db'
 import { getRun } from '@/lib/pipeline'
+import { isPipelineComplete } from '@/lib/pipeline-status'
+
+type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
-  const id = Number(params.id)
+  const { id: rawId } = await params
+  const id = Number(rawId)
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }
@@ -19,9 +23,10 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
-  const id = Number(params.id)
+  const { id: rawId } = await params
+  const id = Number(rawId)
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }
@@ -37,8 +42,7 @@ export async function PATCH(
     if (!run) {
       return NextResponse.json({ error: 'Episode run not found' }, { status: 400 })
     }
-    const allDone = Object.values(run.stages || {}).every(s => s.exists)
-    if (!allDone) {
+    if (!isPipelineComplete(run.stages)) {
       return NextResponse.json({ error: 'Cannot publish: pipeline not complete' }, { status: 403 })
     }
   }
@@ -49,9 +53,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
-  const id = Number(params.id)
+  const { id: rawId } = await params
+  const id = Number(rawId)
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }

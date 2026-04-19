@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 
 interface TimelineItem {
@@ -18,6 +18,16 @@ interface EpisodeOption {
   id: string
   title: string
 }
+
+const REMOTION_COMPONENTS = [
+  { id: 'LearningLogTitleCard', use: '标题卡 / hook 承诺' },
+  { id: 'KeyLineCaption', use: '字幕和关键词高亮' },
+  { id: 'DecisionComparisonCard', use: '产品 / 决策对比卡' },
+  { id: 'WhyIChoseThisMap', use: '选择路径和过程图' },
+  { id: 'SpecVsExperienceCard', use: '参数和真实体验分离' },
+  { id: 'PlatformReframe', use: '9:16 / 16:9 平台重排' },
+  { id: 'ThumbnailBatch', use: '封面 still 批量候选' },
+]
 
 export default function PackagingPage() {
   const [items, setItems] = useState<TimelineItem[]>([])
@@ -43,14 +53,12 @@ export default function PackagingPage() {
       .then((data: Array<{ id: string; title: string }>) => {
         const opts = data.map(d => ({ id: d.id, title: d.title }))
         setEpisodes(opts)
-        if (opts.length > 0 && !selectedEpisodeId) {
-          setSelectedEpisodeId(opts[0].id)
-        }
+        setSelectedEpisodeId(current => current || opts[0]?.id || '')
       })
       .catch(() => setError('加载选题列表失败'))
   }, [])
 
-  async function fetchTimeline(episodeId: string) {
+  const fetchTimeline = useCallback(async (episodeId: string) => {
     if (!episodeId) return
     setLoading(true)
     setError('')
@@ -65,13 +73,13 @@ export default function PackagingPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     if (selectedEpisodeId) {
       fetchTimeline(selectedEpisodeId)
     }
-  }, [selectedEpisodeId])
+  }, [selectedEpisodeId, fetchTimeline])
 
   async function persistTimeline(nextItems: TimelineItem[]) {
     if (!selectedEpisodeId) return
@@ -199,6 +207,40 @@ export default function PackagingPage() {
           >
             {showForm ? '取消' : '+ 添加时间点'}
           </button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] mb-8">
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold">Remotion 组件库</h3>
+                <p className="text-text-3 text-sm mt-1">已接入 motion/，由 props JSON 驱动</p>
+              </div>
+              <span className="px-2 py-1 rounded bg-accent/15 text-accent text-xs">7 compositions</span>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {REMOTION_COMPONENTS.map(component => (
+                <div key={component.id} className="bg-surface-2 border border-border rounded-lg p-3">
+                  <div className="font-mono text-xs text-accent">{component.id}</div>
+                  <div className="text-sm text-text-2 mt-1">{component.use}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h3 className="font-semibold mb-3">自动化命令</h3>
+            <div className="space-y-3 text-sm">
+              <div className="bg-surface-2 border border-border rounded-lg p-3">
+                <div className="text-text-3 mb-1">生成 Remotion props</div>
+                <code className="text-accent break-all">python3 scripts/remotion_props_builder.py --run runs/&lt;episode_id&gt;</code>
+              </div>
+              <div className="bg-surface-2 border border-border rounded-lg p-3">
+                <div className="text-text-3 mb-1">still smoke test</div>
+                <code className="text-accent break-all">python3 scripts/remotion_render_qc.py --run runs/&lt;episode_id&gt; --props 06-packaging/remotion/learning-log-props.json --composition LearningLogTitleCard --frame 30</code>
+              </div>
+            </div>
+          </div>
         </div>
 
         {showForm && (
@@ -380,7 +422,7 @@ export default function PackagingPage() {
         {items.length === 0 && (
           <div className="text-center py-20">
             <p className="text-text-3 text-lg mb-2">暂无时间点</p>
-            <p className="text-text-3 text-sm">点击"添加时间点"开始创建 Remotion 时间轴</p>
+            <p className="text-text-3 text-sm">点击添加时间点开始创建 Remotion 时间轴</p>
           </div>
         )}
       </main>

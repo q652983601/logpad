@@ -88,7 +88,7 @@ export default function ScriptEditor() {
   const [saveError, setSaveError] = useState('')
   const [pendingDraft, setPendingDraft] = useState<ScriptData | null>(null)
 
-  async function loadScript() {
+  const loadScript = useCallback(async () => {
     setLoading(true)
     setError('')
     setPendingDraft(null)
@@ -109,7 +109,8 @@ export default function ScriptEditor() {
       // Always load server data first; do NOT restore draft until user confirms
       setScript(serverData)
 
-      if (draft && draft.timestamp > (data.script ? Date.now() - 86400000 : 0)) {
+      const draftAge = draft ? Date.now() - draft.timestamp : Number.POSITIVE_INFINITY
+      if (draft && draftAge < 7 * 86400000) {
         setDraftBanner('pending')
         setPendingDraft(draft.script)
       } else {
@@ -121,11 +122,11 @@ export default function ScriptEditor() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     loadScript()
-  }, [id])
+  }, [loadScript])
 
   const wordCount = (script.script || '').length
   const estimatedMinutes = Math.ceil(wordCount / 200)
@@ -198,7 +199,7 @@ export default function ScriptEditor() {
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'AI 请求失败')
+      if (!res.ok) throw new Error(data.error || 'Agent 请求失败')
 
       const text = data.result as string
 
@@ -309,6 +310,7 @@ export default function ScriptEditor() {
             key={i}
             className={`rounded px-0.5 border ${getIssueColor(part.issue.type)}`}
             title={`${getIssueLabel(part.issue.type)}: 建议改为「${part.issue.suggestion}」`}
+            aria-label={`${getIssueLabel(part.issue.type)}，建议改为 ${part.issue.suggestion}`}
           >
             {part.text}
           </mark>
@@ -455,6 +457,11 @@ export default function ScriptEditor() {
                         className="w-full h-[500px] bg-transparent text-sm text-text leading-relaxed resize-none focus:outline-none placeholder:text-text-3/50"
                       />
                     </div>
+                    {showIssues && issues.length > 0 && (
+                      <div className="mt-4 rounded-lg border border-border bg-surface-2 p-4 text-sm leading-relaxed text-text-2 whitespace-pre-wrap">
+                        {renderHighlightedText(script.script || '', issues)}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -602,42 +609,42 @@ export default function ScriptEditor() {
             </div>
 
             <div className="bg-surface border border-border rounded-xl p-5">
-              <h3 className="font-semibold mb-4">AI 助手</h3>
+              <h3 className="font-semibold mb-4">本地 Agent</h3>
               <div className="space-y-2">
                 <button
                   onClick={() => callAI('rewrite_colloquial')}
                   disabled={!!aiLoading}
                   className="w-full text-left px-4 py-3 bg-surface-2 border border-border rounded-lg text-sm text-text-2 hover:border-accent/30 hover:text-text transition-colors disabled:opacity-50"
                 >
-                  {aiLoading === 'rewrite_colloquial' ? '生成中...' : '✨ 改写这段更口语化'}
+                  {aiLoading === 'rewrite_colloquial' ? '执行中...' : '改写这段更口语化'}
                 </button>
                 <button
                   onClick={() => callAI('generate_titles')}
                   disabled={!!aiLoading}
                   className="w-full text-left px-4 py-3 bg-surface-2 border border-border rounded-lg text-sm text-text-2 hover:border-accent/30 hover:text-text transition-colors disabled:opacity-50"
                 >
-                  {aiLoading === 'generate_titles' ? '生成中...' : '✨ 生成 3 个标题候选'}
+                  {aiLoading === 'generate_titles' ? '执行中...' : '生成 3 个标题候选'}
                 </button>
                 <button
                   onClick={() => callAI('generate_hooks')}
                   disabled={!!aiLoading}
                   className="w-full text-left px-4 py-3 bg-surface-2 border border-border rounded-lg text-sm text-text-2 hover:border-accent/30 hover:text-text transition-colors disabled:opacity-50"
                 >
-                  {aiLoading === 'generate_hooks' ? '生成中...' : '✨ 生成 3 个 Hook 候选'}
+                  {aiLoading === 'generate_hooks' ? '执行中...' : '生成 3 个 Hook 候选'}
                 </button>
                 <button
                   onClick={() => callAI('generate_remotion')}
                   disabled={!!aiLoading}
                   className="w-full text-left px-4 py-3 bg-surface-2 border border-border rounded-lg text-sm text-text-2 hover:border-accent/30 hover:text-text transition-colors disabled:opacity-50"
                 >
-                  {aiLoading === 'generate_remotion' ? '生成中...' : '✨ 生成 Remotion 插画需求'}
+                  {aiLoading === 'generate_remotion' ? '执行中...' : '生成 Remotion 插画需求'}
                 </button>
                 <button
                   onClick={() => callAI('rewrite_douyin')}
                   disabled={!!aiLoading}
                   className="w-full text-left px-4 py-3 bg-surface-2 border border-border rounded-lg text-sm text-text-2 hover:border-accent/30 hover:text-text transition-colors disabled:opacity-50"
                 >
-                  {aiLoading === 'rewrite_douyin' ? '生成中...' : '✨ 改写成抖音 60 秒版'}
+                  {aiLoading === 'rewrite_douyin' ? '执行中...' : '改写成抖音 60 秒版'}
                 </button>
               </div>
             </div>
@@ -652,11 +659,11 @@ export default function ScriptEditor() {
               </button>
             </div>
 
-            {/* AI Results Panel */}
+            {/* Local Agent Results Panel */}
             {(aiResult || aiError) && (
               <div className="bg-surface border border-border rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">AI 生成结果</h3>
+                  <h3 className="font-semibold">本地 Agent 结果</h3>
                   <button
                     onClick={() => { setAiResult(null); setAiError('') }}
                     className="text-xs text-text-3 hover:text-text"
@@ -740,9 +747,14 @@ export default function ScriptEditor() {
       {/* Backups Modal */}
       {showBackups && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-surface border border-border rounded-xl w-[480px] max-h-[70vh] flex flex-col shadow-xl">
+          <div
+            className="bg-surface border border-border rounded-xl w-[480px] max-h-[70vh] flex flex-col shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="script-backups-title"
+          >
             <div className="flex items-center justify-between p-5 border-b border-border">
-              <h3 className="font-semibold">版本历史</h3>
+              <h3 id="script-backups-title" className="font-semibold">版本历史</h3>
               <button
                 onClick={() => setShowBackups(false)}
                 className="text-sm text-text-3 hover:text-text"
@@ -782,8 +794,13 @@ export default function ScriptEditor() {
       {/* Confirm Restore Modal */}
       {confirmRestore && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-          <div className="bg-surface border border-border rounded-xl w-[360px] p-5 shadow-xl">
-            <h3 className="font-semibold mb-2">确认恢复</h3>
+          <div
+            className="bg-surface border border-border rounded-xl w-[360px] p-5 shadow-xl"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirm-restore-title"
+          >
+            <h3 id="confirm-restore-title" className="font-semibold mb-2">确认恢复</h3>
             <p className="text-sm text-text-2 mb-5">
               确定要恢复到此版本吗？当前内容将被覆盖。
             </p>

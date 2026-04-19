@@ -3,16 +3,18 @@ import { getRun } from '@/lib/pipeline'
 import { getEpisode, updateEpisodeStatus } from '@/lib/db'
 import { validateRunId, validateStatus } from '@/lib/validation'
 
+type RouteContext = { params: Promise<{ id: string }> }
+
 function errorResponse(error: string, details?: string, status = 500) {
   return NextResponse.json({ error, details }, { status })
 }
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
     }
@@ -26,7 +28,16 @@ export async function GET(
 
     return NextResponse.json({
       ...run,
+      id,
+      title: run?.title || episode?.title || id,
+      status: run?.status || episode?.status || 'inbox',
+      createdAt: run?.createdAt || episode?.created_at || '',
+      stages: run?.stages || {},
       dbStatus: episode?.status || 'inbox',
+      description: episode?.description || run?.description || '',
+      targetPlatforms: episode?.target_platforms
+        ? episode.target_platforms.split(',').map(item => item.trim()).filter(Boolean)
+        : run?.platforms || [],
       scores: {
         curiosity: episode?.score_curiosity,
         audience: episode?.score_audience,
@@ -41,10 +52,10 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     if (!id || !validateRunId(id)) {
       return errorResponse('Invalid id parameter', undefined, 400)
     }

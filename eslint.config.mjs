@@ -1,0 +1,18 @@
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTypescript from 'eslint-config-next/typescript'
+
+const config = [
+  ...nextVitals,
+  ...nextTypescript,
+  {
+    ignores: ['.next/**', 'node_modules/**', 'coverage/**'],
+  },
+  {
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+]
+
+export default config

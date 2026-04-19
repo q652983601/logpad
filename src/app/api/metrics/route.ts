@@ -2,66 +2,62 @@ import { NextResponse } from 'next/server'
 import { listMetrics, createMetrics } from '@/lib/db'
 import { writeRunJson } from '@/lib/pipeline'
 import { validateRunId } from '@/lib/validation'
+import { formatZodError, metricPayloadSchema } from '@/lib/api-schemas'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const episode_id = searchParams.get('episode_id') || undefined
   const platform = searchParams.get('platform') || undefined
+  if (episode_id && !validateRunId(episode_id)) {
+    return NextResponse.json({ error: 'Invalid episode_id' }, { status: 400 })
+  }
 
   const metrics = listMetrics({ episode_id, platform })
   return NextResponse.json(metrics)
 }
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const {
-    episode_id,
-    platform,
-    views,
-    completion_rate,
-    likes,
-    comments,
-    shares,
-    saves,
-    new_followers,
-    avg_watch_time,
-    ctr,
-  } = body
-
-  if (!episode_id || !platform) {
-    return NextResponse.json({ error: 'episode_id and platform are required' }, { status: 400 })
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  createMetrics({
-    episode_id,
-    platform,
-    views: views ?? 0,
-    completion_rate: completion_rate ?? 0,
-    likes: likes ?? 0,
-    comments: comments ?? 0,
-    shares: shares ?? 0,
-    saves: saves ?? 0,
-    new_followers: new_followers ?? 0,
-    avg_watch_time: avg_watch_time ?? 0,
-    ctr: ctr ?? 0,
-  })
+  const parsed = metricPayloadSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
+  }
+  const metric = parsed.data
+
+  createMetrics(metric)
 
   // Writeback to runs/<episode_id>/09-metrics/metrics.json
-  if (validateRunId(episode_id)) {
+  if (validateRunId(metric.episode_id)) {
     try {
-      writeRunJson(episode_id, '09-metrics', 'metrics.json', {
-        episode_id,
-        platform,
-        views: views ?? 0,
-        completion_rate: completion_rate ?? 0,
-        likes: likes ?? 0,
-        comments: comments ?? 0,
-        shares: shares ?? 0,
-        saves: saves ?? 0,
-        new_followers: new_followers ?? 0,
-        avg_watch_time: avg_watch_time ?? 0,
-        ctr: ctr ?? 0,
-        recorded_at: new Date().toISOString(),
+      writeRunJson(metric.episode_id, '09-metrics', 'metrics.json', {
+        episode_id: metric.episode_id,
+        updated_at: new Date().toISOString(),
+        status: 'draft',
+        capture_windows: ['manual'],
+        platform_metrics: [{
+          platform: metric.platform,
+          window: 'manual',
+          captured_at: new Date().toISOString(),
+          views: metric.views,
+          completion_rate: metric.completion_rate,
+          likes: metric.likes,
+          comments: metric.comments,
+          shares: metric.shares,
+          saves: metric.saves,
+          new_followers: metric.new_followers,
+          avg_watch_time: metric.avg_watch_time,
+          ctr: metric.ctr,
+          data_source: 'logpad_manual',
+        }],
+        packaging_diagnosis: 'pending',
+        retention_diagnosis: 'pending',
+        raw_exports: [],
       })
     } catch (err) {
       console.warn('Failed to write metrics.json:', err)
