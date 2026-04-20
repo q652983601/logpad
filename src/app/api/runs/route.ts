@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { listRuns, initRun } from '@/lib/pipeline'
+import { getRunPath, listRuns, initRun } from '@/lib/pipeline'
 import { listEpisodes, createEpisode } from '@/lib/db'
 import { formatZodError, runCreateSchema } from '@/lib/api-schemas'
 import { parsePagination } from '@/lib/pagination'
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       platforms: platforms ? platforms.join(',') : undefined,
       description,
       target_platforms: platforms ? platforms.join(',') : undefined,
-      run_path: `${process.env.MEDIA_CODEX_ROOT || '/Users/wilsonlu/Desktop/Ai/media/media-codex'}/runs/${id}`,
+      run_path: getRunPath(id),
     })
 
     return NextResponse.json({ success: true }, { status: 201 })

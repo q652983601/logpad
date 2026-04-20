@@ -1,19 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import { createEpisode, getEpisode, updateEpisodeStatus } from './db'
-import { initRun, runExists } from './pipeline'
+import { getRunPath, initRun, runExists } from './pipeline'
 import { validateRunId } from './validation'
+import { resolveActiveEpisodesDir } from './workspace-paths'
 
-const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
-  ? path.resolve(process.env.MEDIA_CODEX_ROOT)
-  : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
-
-const ACTIVE_EPISODES_DIR = path.join(
-  MEDIA_CODEX_ROOT,
-  'business-folder-os',
-  '03-episodes',
-  'active'
-)
+const ACTIVE_EPISODES_DIR = resolveActiveEpisodesDir()
 
 interface ActiveEpisodeCandidate {
   id: string
@@ -99,7 +91,7 @@ export function syncActiveEpisodes(): { imported: string[]; existing: string[] }
         platforms: 'youtube,douyin-main,bilibili',
         description: candidate.description,
         target_platforms: 'youtube,douyin-main,bilibili',
-        run_path: path.join(MEDIA_CODEX_ROOT, 'runs', candidate.id),
+        run_path: getRunPath(candidate.id),
       })
     } else if (episode.status === 'inbox' || episode.status === 'unknown') {
       updateEpisodeStatus(candidate.id, candidate.status)

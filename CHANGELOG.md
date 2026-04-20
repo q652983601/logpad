@@ -8,6 +8,25 @@ This project follows a pragmatic SemVer-style workflow:
 - `MINOR`: user-facing product capability additions.
 - `PATCH`: bug fixes, safety improvements, documentation, validation, and small UX polish.
 
+## [0.4.2] - 2026-04-20
+
+### Changed
+
+- Repositioned Web/PWA as the companion surface for LogPad Mac.
+- Added `LOGPAD_WORKSPACE_ROOT` path resolution so Web/PWA defaults to `logpad-macos/workspace`.
+- Changed run reads/writes to prefer `03-content-projects/runs` inside the Mac workspace.
+- Changed local Agent cwd and handoff writeback to use `02-agent-workflows` inside the Mac workspace.
+- Changed SQLite default path to `workspace/01-app-control/state/logpad.db`, making SQLite an index/cache beside the Mac app.
+- Kept legacy `media-codex` as `LOGPAD_BUSINESS_ROOT` / `LOGPAD_PIPELINE_ROOT` for old scripts and business-folder imports.
+- Added writebacks from Web voice notes, voice collections, asset imports, publishing updates, metrics updates, and learnings into the Mac workspace.
+
+### Verification
+
+- `npm test`: passed, 7 files, 28 tests.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed with a Turbopack NFT trace warning from server-side filesystem routes.
+
 ## [0.4.1] - 2026-04-19
 
 ### Added

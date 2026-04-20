@@ -3,9 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { validateRunId } from '@/lib/validation'
 import { formatZodError, timelineSchema } from '@/lib/api-schemas'
-
-const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT || '/Users/wilsonlu/Desktop/Ai/media/media-codex'
-const RUNS_DIR = path.resolve(MEDIA_CODEX_ROOT, 'runs')
+import { getRunPath } from '@/lib/pipeline'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -23,7 +21,7 @@ export async function GET(
       return errorResponse('Invalid id parameter', undefined, 400)
     }
 
-    const timelinePath = path.join(RUNS_DIR, id, '06-packaging', 'timeline.json')
+    const timelinePath = path.join(getRunPath(id), '06-packaging', 'timeline.json')
     if (!fs.existsSync(timelinePath)) {
       return NextResponse.json({ items: [] })
     }
@@ -60,7 +58,7 @@ export async function PUT(
       return errorResponse('Invalid timeline body', formatZodError(parsed.error), 400)
     }
 
-    const pkgDir = path.join(RUNS_DIR, id, '06-packaging')
+    const pkgDir = path.join(getRunPath(id), '06-packaging')
     if (!fs.existsSync(pkgDir)) {
       fs.mkdirSync(pkgDir, { recursive: true })
     }

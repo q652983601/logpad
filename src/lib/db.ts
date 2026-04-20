@@ -1,10 +1,11 @@
 import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
+import { resolveWorkspaceRoot } from './workspace-paths'
 
-export function resolveDbPath(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): string {
+export function resolveDbPath(env: NodeJS.ProcessEnv = process.env): string {
   const configured = env.LOGPAD_DB_PATH || env.DATABASE_URL
-  if (!configured) return path.join(cwd, 'data', 'logpad.db')
+  if (!configured) return path.join(resolveWorkspaceRoot(env), '01-app-control', 'state', 'logpad.db')
 
   if (configured.startsWith('file:')) {
     return new URL(configured).pathname

@@ -5,19 +5,19 @@ This document defines how LogPad versions are named, validated, tagged, and publ
 ## Current Stable Version
 
 ```text
-0.4.1
+0.4.2
 ```
 
 Release tag:
 
 ```text
-v0.4.1
+v0.4.2
 ```
 
 Release line:
 
 ```text
-creator-control-plane
+web-pwa-companion
 ```
 
 ## Version Rule
@@ -32,6 +32,7 @@ Examples:
 
 - `0.4.0`: Voice Inbox and local folder asset indexing become major usable modules.
 - `0.4.1`: small UX fixes, extra tests, docs, or bug fixes after `0.4.0`.
+- `0.4.2`: Web/PWA becomes a companion surface that reads and writes the LogPad Mac workspace truth source.
 - `1.0.0`: LogPad is stable enough for daily production without manual fallback to file browsing.
 
 ## Release Checklist
@@ -67,20 +68,20 @@ Also do one browser smoke check for the creator-critical paths:
 
 ```bash
 git add .
-git commit -m "Release LogPad v0.4.1"
+git commit -m "Release LogPad Web v0.4.2"
 ```
 
 7. Tag:
 
 ```bash
-git tag -a v0.4.1 -m "LogPad v0.4.1"
+git tag -a v0.4.2 -m "LogPad Web v0.4.2"
 ```
 
 8. Push:
 
 ```bash
 git push origin main
-git push origin v0.4.1
+git push origin v0.4.2
 ```
 
 9. Create or update the GitHub release from the changelog entry.
@@ -113,7 +114,7 @@ If a material workflow decision changed, also write it back to:
 To inspect a previous release:
 
 ```bash
-git checkout v0.4.1
+git checkout v0.4.2
 ```
 
 To return to active development:

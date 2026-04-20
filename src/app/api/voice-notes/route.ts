@@ -3,6 +3,7 @@ import path from 'path'
 import { mkdir, writeFile } from 'fs/promises'
 import { createVoiceNote, listVoiceNotes } from '@/lib/db'
 import { summarizeTranscript } from '@/lib/voice'
+import { appendVoiceNoteToWorkspace } from '@/lib/workspace-writeback'
 
 const ALLOWED_AUDIO = new Set([
   'audio/mpeg',
@@ -77,6 +78,15 @@ export async function POST(request: Request) {
       key_points: JSON.stringify(analysis.keyPoints),
       tags,
       status: transcript ? 'transcribed' : 'uploaded',
+    })
+
+    await appendVoiceNoteToWorkspace({
+      id,
+      title,
+      summary: analysis.summary,
+      transcript,
+      tags,
+      audioPath,
     })
 
     return NextResponse.json({ id }, { status: 201 })

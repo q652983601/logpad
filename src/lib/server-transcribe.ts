@@ -2,14 +2,9 @@ import fs from 'fs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
+import { resolveTranscribeOutputDir, resolveWorkspaceRoot } from './workspace-paths'
 
 const execFileAsync = promisify(execFile)
-
-function mediaCodexRoot(): string {
-  return process.env.MEDIA_CODEX_ROOT
-    ? path.resolve(/*turbopackIgnore: true*/ process.env.MEDIA_CODEX_ROOT)
-    : '/Users/wilsonlu/Desktop/Ai/media/media-codex'
-}
 
 export function resolvePublicUploadPath(publicPath: string): string {
   const publicDir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), 'public')
@@ -33,8 +28,8 @@ export async function transcribeAudioFile(audioPath: string): Promise<string> {
     throw new Error(`Transcribe CLI not found: ${cli}`)
   }
 
-  const root = mediaCodexRoot()
-  const outDir = path.join(/*turbopackIgnore: true*/ root, 'output', 'transcribe', 'logpad-voice')
+  const root = resolveWorkspaceRoot()
+  const outDir = resolveTranscribeOutputDir()
   fs.mkdirSync(outDir, { recursive: true })
   const outPath = path.join(outDir, `${Date.now()}-${path.basename(audioPath)}.txt`)
 

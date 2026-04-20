@@ -2,10 +2,9 @@ import { spawn } from 'child_process'
 import { appendFile, mkdir } from 'fs/promises'
 import path from 'path'
 import type { AgentProvider } from './api-schemas'
+import { resolveAgentHandoffDir, resolveWorkspaceRoot } from './workspace-paths'
 
-const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
-  ? path.resolve(process.env.MEDIA_CODEX_ROOT)
-  : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
+const LOGPAD_WORKSPACE_ROOT = resolveWorkspaceRoot()
 
 interface RunLocalAgentOptions {
   provider?: AgentProvider
@@ -22,7 +21,7 @@ interface RunLocalAgentResult {
 function runWithInput(command: string, args: string[], input: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: MEDIA_CODEX_ROOT,
+      cwd: LOGPAD_WORKSPACE_ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: process.env,
     })
@@ -64,7 +63,7 @@ function runWithInput(command: string, args: string[], input: string, timeoutMs:
 }
 
 export async function handoffToOpenClaw(prompt: string, action: string): Promise<string> {
-  const inboxDir = path.join(MEDIA_CODEX_ROOT, 'handoff', 'logpad-agent-requests')
+  const inboxDir = path.join(resolveAgentHandoffDir(), 'logpad-agent-requests')
   await mkdir(inboxDir, { recursive: true })
   const file = path.join(inboxDir, `${new Date().toISOString().slice(0, 10)}.md`)
   const entry = [
@@ -78,7 +77,7 @@ export async function handoffToOpenClaw(prompt: string, action: string): Promise
     '',
   ].join('\n')
   await appendFile(file, entry, 'utf8')
-  return `已写入 OpenClaw handoff：${path.relative(MEDIA_CODEX_ROOT, file)}`
+  return `已写入 Agent handoff：${path.relative(LOGPAD_WORKSPACE_ROOT, file)}`
 }
 
 export async function runLocalAgent(options: RunLocalAgentOptions): Promise<RunLocalAgentResult> {
@@ -103,7 +102,7 @@ export async function runLocalAgent(options: RunLocalAgentOptions): Promise<RunL
     provider: 'codex',
     result: await runWithInput(
       'codex',
-      ['exec', '--cd', MEDIA_CODEX_ROOT, '--skip-git-repo-check', '--ephemeral', '--sandbox', 'read-only', '-'],
+      ['exec', '--cd', LOGPAD_WORKSPACE_ROOT, '--skip-git-repo-check', '--ephemeral', '--sandbox', 'read-only', '-'],
       options.prompt,
       timeoutMs
     ),

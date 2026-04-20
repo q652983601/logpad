@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getPublishingPlan, updatePublishingPlan, deletePublishingPlan } from '@/lib/db'
-import { getRun } from '@/lib/pipeline'
+import { getRun, writeRunJson } from '@/lib/pipeline'
 import { isReadyToPublish } from '@/lib/pipeline-status'
+import { validateRunId } from '@/lib/validation'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -49,6 +50,20 @@ export async function PATCH(
   }
 
   updatePublishingPlan(id, body)
+  const updated = getPublishingPlan(id)
+  if (updated?.episode_id && validateRunId(updated.episode_id)) {
+    writeRunJson(updated.episode_id, '08-distribution', 'publish_plan.json', {
+      id: updated.id,
+      episode_id: updated.episode_id,
+      platform: updated.platform,
+      title: updated.title,
+      description: updated.description,
+      tags: updated.tags,
+      scheduled_at: updated.scheduled_at,
+      status: updated.status,
+      updated_at: new Date().toISOString(),
+    })
+  }
   return NextResponse.json({ success: true })
 }
 

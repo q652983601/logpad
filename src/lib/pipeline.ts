@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import { validateRunId } from './validation'
+import { resolveBusinessTruthDir, resolveRunPath, resolveRunsDir } from './workspace-paths'
 
-const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
-  ? path.resolve(process.env.MEDIA_CODEX_ROOT)
-  : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
-const RUNS_DIR = path.join(MEDIA_CODEX_ROOT, 'runs')
+function runsDir(): string {
+  return resolveRunsDir()
+}
 
 function assertValidRunId(id: string): void {
   if (!validateRunId(id)) {
@@ -24,13 +24,14 @@ export interface RunInfo {
 }
 
 export function listRuns(): RunInfo[] {
-  if (!fs.existsSync(RUNS_DIR)) return []
+  const dirRoot = runsDir()
+  if (!fs.existsSync(dirRoot)) return []
 
-  const dirs = fs.readdirSync(RUNS_DIR, { withFileTypes: true })
+  const dirs = fs.readdirSync(dirRoot, { withFileTypes: true })
     .filter(d => d.isDirectory() && !d.name.startsWith('_'))
 
   return dirs.map(dir => {
-    const runPath = path.join(RUNS_DIR, dir.name)
+    const runPath = path.join(dirRoot, dir.name)
     const episodePath = path.join(runPath, 'episode.json')
     let title = dir.name
     let status = 'unknown'
@@ -83,7 +84,7 @@ export function getRun(id: string): RunInfo | null {
 
 export function readScript(id: string): unknown | null {
   assertValidRunId(id)
-  const scriptPath = path.join(RUNS_DIR, id, '04-script', 'script.json')
+  const scriptPath = path.join(runsDir(), id, '04-script', 'script.json')
   if (!fs.existsSync(scriptPath)) return null
   try {
     return JSON.parse(fs.readFileSync(scriptPath, 'utf-8'))
@@ -94,7 +95,7 @@ export function readScript(id: string): unknown | null {
 
 export function writeScript(id: string, data: unknown): void {
   assertValidRunId(id)
-  const scriptDir = path.join(RUNS_DIR, id, '04-script')
+  const scriptDir = path.join(runsDir(), id, '04-script')
   if (!fs.existsSync(scriptDir)) {
     fs.mkdirSync(scriptDir, { recursive: true })
   }
@@ -103,7 +104,7 @@ export function writeScript(id: string, data: unknown): void {
 
 export function readPackaging(id: string): unknown | null {
   assertValidRunId(id)
-  const pkgPath = path.join(RUNS_DIR, id, '06-packaging', 'package.json')
+  const pkgPath = path.join(runsDir(), id, '06-packaging', 'package.json')
   if (!fs.existsSync(pkgPath)) return null
   try {
     return JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
@@ -114,17 +115,17 @@ export function readPackaging(id: string): unknown | null {
 
 export function getScriptPath(id: string): string {
   assertValidRunId(id)
-  return path.join(RUNS_DIR, id, '04-script', 'script.json')
+  return path.join(runsDir(), id, '04-script', 'script.json')
 }
 
 export function getRunPath(id: string): string {
   assertValidRunId(id)
-  return path.join(RUNS_DIR, id)
+  return resolveRunPath(id)
 }
 
 export function runExists(id: string): boolean {
   assertValidRunId(id)
-  return fs.existsSync(path.join(RUNS_DIR, id))
+  return fs.existsSync(path.join(runsDir(), id))
 }
 
 export function initRun(
@@ -133,7 +134,7 @@ export function initRun(
   options: { description?: string; platforms?: string[] } = {}
 ): void {
   assertValidRunId(id)
-  const runPath = path.join(RUNS_DIR, id)
+  const runPath = path.join(runsDir(), id)
   if (!fs.existsSync(runPath)) {
     fs.mkdirSync(runPath, { recursive: true })
   }
@@ -181,10 +182,10 @@ export interface ScriptBackup {
 
 export function backupScript(id: string): void {
   assertValidRunId(id)
-  const scriptPath = path.join(RUNS_DIR, id, '04-script', 'script.json')
+  const scriptPath = path.join(runsDir(), id, '04-script', 'script.json')
   if (!fs.existsSync(scriptPath)) return
 
-  const backupsDir = path.join(RUNS_DIR, id, '04-script', 'backups')
+  const backupsDir = path.join(runsDir(), id, '04-script', 'backups')
   if (!fs.existsSync(backupsDir)) {
     fs.mkdirSync(backupsDir, { recursive: true })
   }
@@ -211,7 +212,7 @@ export function backupScript(id: string): void {
 
 export function listScriptBackups(id: string): ScriptBackup[] {
   assertValidRunId(id)
-  const backupsDir = path.join(RUNS_DIR, id, '04-script', 'backups')
+  const backupsDir = path.join(runsDir(), id, '04-script', 'backups')
   if (!fs.existsSync(backupsDir)) return []
 
   return fs.readdirSync(backupsDir)
@@ -229,7 +230,7 @@ export function listScriptBackups(id: string): ScriptBackup[] {
 
 export function readScriptBackup(id: string, filename: string): unknown | null {
   assertValidRunId(id)
-  const backupsDir = path.join(RUNS_DIR, id, '04-script', 'backups')
+  const backupsDir = path.join(runsDir(), id, '04-script', 'backups')
   const backupPath = path.join(backupsDir, filename)
 
   // Security: ensure the resolved path is within the backups directory
@@ -251,7 +252,7 @@ export function readScriptBackup(id: string, filename: string): unknown | null {
 
 export function writeRunJson(id: string, subdir: string, filename: string, data: unknown): void {
   assertValidRunId(id)
-  const dir = path.join(RUNS_DIR, id, subdir)
+  const dir = path.join(runsDir(), id, subdir)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
@@ -260,7 +261,7 @@ export function writeRunJson(id: string, subdir: string, filename: string, data:
 
 export function readRunJson(id: string, subdir: string, filename: string): unknown | null {
   assertValidRunId(id)
-  const filePath = path.join(RUNS_DIR, id, subdir, filename)
+  const filePath = path.join(runsDir(), id, subdir, filename)
   if (!fs.existsSync(filePath)) return null
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
@@ -270,7 +271,7 @@ export function readRunJson(id: string, subdir: string, filename: string): unkno
 }
 
 export function appendToTruthLog(logPath: string, entry: string): void {
-  const truthDir = path.join(MEDIA_CODEX_ROOT, 'truth')
+  const truthDir = resolveBusinessTruthDir()
   if (!fs.existsSync(truthDir)) {
     fs.mkdirSync(truthDir, { recursive: true })
   }

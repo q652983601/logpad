@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createVoiceCollection, getVoiceNote, listVoiceCollections } from '@/lib/db'
 import { formatZodError, voiceCollectionCreateSchema } from '@/lib/api-schemas'
 import { buildVoiceCollectionDraft } from '@/lib/voice'
+import { appendVoiceCollectionToWorkspace } from '@/lib/workspace-writeback'
 
 export async function GET() {
   return NextResponse.json(listVoiceCollections())
@@ -39,6 +40,17 @@ export async function POST(request: Request) {
       draft_outline: draft.draft_outline,
       agent_brief: '',
       status: 'draft',
+    })
+
+    await appendVoiceCollectionToWorkspace({
+      id,
+      title: parsed.data.title,
+      noteIds: parsed.data.note_ids,
+      theme: draft.theme,
+      audiencePain: draft.audience_pain,
+      theorySupport: draft.theory_support,
+      contentAngle: draft.content_angle,
+      draftOutline: draft.draft_outline,
     })
 
     return NextResponse.json({ id }, { status: 201 })

@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { assetFolderImportSchema, formatZodError } from '@/lib/api-schemas'
 import { createAsset, getAssetByPath } from '@/lib/db'
+import { appendWorkspaceJsonLine } from '@/lib/workspace-writeback'
 
 export const runtime = 'nodejs'
 
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
         continue
       }
       const stat = fs.statSync(filePath)
-      createAsset({
+      const id = createAsset({
         episode_id: parsed.data.episode_id || null,
         name: path.basename(filePath),
         type: info.type,
@@ -80,6 +81,17 @@ export async function POST(request: Request) {
         size: stat.size,
         source: parsed.data.source,
         status: 'indexed',
+      })
+      await appendWorkspaceJsonLine('05-local-assets/indexes/logpad-web-assets.jsonl', {
+        id,
+        source: 'web-folder-import',
+        episode_id: parsed.data.episode_id || null,
+        name: path.basename(filePath),
+        type: info.type,
+        mime_type: info.mime,
+        path: localPath,
+        size: stat.size,
+        imported_at: new Date().toISOString(),
       })
       imported += 1
     }

@@ -3,8 +3,9 @@ import { listAssets, createAsset, getEpisode, listEpisodes, countAssets } from '
 import { writeFile, mkdir, readFile } from 'fs/promises'
 import path from 'path'
 import { validateRunId } from '@/lib/validation'
-import { listRuns, runExists } from '@/lib/pipeline'
+import { getRunPath, listRuns, runExists } from '@/lib/pipeline'
 import { parsePagination } from '@/lib/pagination'
+import { appendWorkspaceJsonLine } from '@/lib/workspace-writeback'
 
 const MAX_SIZE = 100 * 1024 * 1024 // 100MB
 
@@ -173,13 +174,22 @@ export async function POST(request: Request) {
       status: 'ready',
     })
 
+    await appendWorkspaceJsonLine('05-local-assets/indexes/logpad-web-assets.jsonl', {
+      id,
+      source: 'web-upload',
+      episode_id,
+      name: file.name,
+      type,
+      mime_type: sniffedMime,
+      path: relativePath,
+      size: file.size,
+      created_at: new Date().toISOString(),
+    })
+
     // Sync to runs/<episode_id>/05-assets/asset_manifest.json
     if (episode_id && validateRunId(episode_id)) {
       try {
-        const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
-          ? path.resolve(process.env.MEDIA_CODEX_ROOT)
-          : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
-        const manifestDir = path.join(MEDIA_CODEX_ROOT, 'runs', episode_id, '05-assets')
+        const manifestDir = path.join(getRunPath(episode_id), '05-assets')
         const manifestPath = path.join(manifestDir, 'asset_manifest.json')
         await mkdir(manifestDir, { recursive: true })
 

@@ -4,7 +4,9 @@ import { resolveDbPath } from './db'
 
 describe('db path resolver', () => {
   it('uses the app data directory by default', () => {
-    expect(resolveDbPath({} as NodeJS.ProcessEnv, '/tmp/logpad')).toBe('/tmp/logpad/data/logpad.db')
+    expect(resolveDbPath({ LOGPAD_WORKSPACE_ROOT: '/tmp/logpad-workspace' } as unknown as NodeJS.ProcessEnv)).toBe(
+      '/tmp/logpad-workspace/01-app-control/state/logpad.db'
+    )
   })
 
   it('supports explicit file paths', () => {

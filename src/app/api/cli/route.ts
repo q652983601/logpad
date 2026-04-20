@@ -4,13 +4,17 @@ import { promisify } from 'util'
 import path from 'path'
 import { cliRequestSchema, formatZodError, type CLIRequest } from '@/lib/api-schemas'
 import { toCliStage } from '@/lib/pipeline-status'
+import { resolvePipelineRoot, resolveRunsDir } from '@/lib/workspace-paths'
 
 const execFileAsync = promisify(execFile)
 
-const MEDIA_CODEX_ROOT = process.env.MEDIA_CODEX_ROOT
-  ? path.resolve(process.env.MEDIA_CODEX_ROOT)
-  : path.resolve('/Users/wilsonlu/Desktop/Ai/media/media-codex')
-const PIPELINE_SCRIPT = path.join(MEDIA_CODEX_ROOT, 'scripts', 'media_pipeline.py')
+const PIPELINE_ROOT = resolvePipelineRoot()
+const PIPELINE_SCRIPT = path.join(PIPELINE_ROOT, 'scripts', 'media_pipeline.py')
+
+function resolveRunArg(runId: string): string {
+  if (runId.includes('/') || path.isAbsolute(runId)) return runId
+  return path.join(resolveRunsDir(), runId)
+}
 
 function buildPipelineArgs(body: CLIRequest): string[] {
   const args: string[] = [body.command]
@@ -24,24 +28,24 @@ function buildPipelineArgs(body: CLIRequest): string[] {
       if (body.force) args.push('--force')
       break
     case 'validate':
-      args.push('--run', body.runId || '')
+      args.push('--run', body.runId ? resolveRunArg(body.runId) : '')
       if (body.upto) args.push('--upto', toCliStage(body.upto))
       break
     case 'status':
     case 'make-pack':
-      args.push('--run', body.runId || '')
+      args.push('--run', body.runId ? resolveRunArg(body.runId) : '')
       break
     case 'advance':
-      args.push('--run', body.runId || '', '--to', toCliStage(body.to || 'signal'))
+      args.push('--run', body.runId ? resolveRunArg(body.runId) : '', '--to', toCliStage(body.to || 'signal'))
       if (body.note) args.push('--note', body.note)
       if (body.force) args.push('--force')
       break
     case 'make-remotion-props':
-      args.push('--run', body.runId || '')
+      args.push('--run', body.runId ? resolveRunArg(body.runId) : '')
       if (body.noPackageUpdate) args.push('--no-package-update')
       break
     case 'remotion-qc':
-      args.push('--run', body.runId || '')
+      args.push('--run', body.runId ? resolveRunArg(body.runId) : '')
       if (body.composition) args.push('--composition', body.composition)
       if (body.frame !== undefined) args.push('--frame', String(body.frame))
       if (body.scale) args.push('--scale', body.scale)
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
     const timeout = body.command === 'remotion-qc' ? 120000 : 30000
 
     const { stdout, stderr } = await execFileAsync('python3', [PIPELINE_SCRIPT, ...args], {
-      cwd: MEDIA_CODEX_ROOT,
+      cwd: PIPELINE_ROOT,
       timeout,
       maxBuffer: 1024 * 1024,
     })
